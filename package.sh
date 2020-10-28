@@ -34,7 +34,7 @@ make clean || exit 1
 
 make all_bin || exit 1
 
-cp -a wfb_rx ${TMPDIR}/usr/local/bin/ || exit 1
+cp -a wfb_tx ${TMPDIR}/usr/local/bin/ || exit 1
 cp -a wfb_rx ${TMPDIR}/usr/local/bin/ || exit 1
 cp -a wfb_keygen ${TMPDIR}/usr/local/bin/ || exit 1
 
