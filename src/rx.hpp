@@ -26,77 +26,21 @@
 #include <errno.h>
 #include <string>
 #include <string.h>
-#include "fec.h"
 #include "wifibroadcast.hpp"
 #include <stdexcept>
+#include "Encryption.hpp"
+#include "FEC.hpp"
+#include "Helper.hpp"
+#include "OpenHDStatisticsWriter.hpp"
+#include "HelperSources/TimeHelper.hpp"
 
-typedef enum {
-    LOCAL,
-    FORWARDER,
-    AGGREGATOR
-} rx_mode_t;
-
-class BaseAggregator
-{
+static constexpr const auto RX_ANT_MAX=4;
+class antennaItem {
 public:
-    virtual void process_packet(const uint8_t *buf, size_t size, uint8_t wlan_idx, const uint8_t *antenna, const int8_t *rssi, sockaddr_in *sockaddr) = 0;
-    virtual void dump_stats(FILE *fp) = 0;
-protected:
-    int open_udp_socket_for_tx(const std::string &client_addr, int client_port)
-    {
-        struct sockaddr_in saddr;
-        int fd = socket(AF_INET, SOCK_DGRAM, 0);
-        if (fd < 0) throw std::runtime_error(string_format("Error opening socket: %s", strerror(errno)));
+    antennaItem()=default;
 
-        bzero((char *) &saddr, sizeof(saddr));
-        saddr.sin_family = AF_INET;
-        saddr.sin_addr.s_addr = inet_addr(client_addr.c_str());
-        saddr.sin_port = htons((unsigned short)client_port);
-
-        if (connect(fd, (struct sockaddr *) &saddr, sizeof(saddr)) < 0)
-        {
-            throw std::runtime_error(string_format("Connect error: %s", strerror(errno)));
-        }
-        return fd;
-    }
-};
-
-
-class Forwarder : public BaseAggregator
-{
-public:
-    Forwarder(const std::string &client_addr, int client_port);
-    ~Forwarder();
-    virtual void process_packet(const uint8_t *buf, size_t size, uint8_t wlan_idx, const uint8_t *antenna, const int8_t *rssi, sockaddr_in *sockaddr);
-    virtual void dump_stats(FILE *) {}
-private:
-    int sockfd;
-};
-
-
-typedef struct {
-    uint64_t block_idx;
-    uint8_t** fragments;
-    uint8_t *fragment_map;
-    uint8_t send_fragment_idx;
-    uint8_t has_fragments;
-} rx_ring_item_t;
-
-
-#define RX_RING_SIZE 40
-
-static inline int modN(int x, int base)
-{
-    return (base + (x % base)) % base;
-}
-
-class antennaItem
-{
-public:
-    antennaItem(void) : count_all(0), rssi_sum(0), rssi_min(0), rssi_max(0) {}
-
-    void log_rssi(int8_t rssi){
-        if(count_all == 0){
+    void addRSSI(int8_t rssi) {
+        if (count_all == 0) {
             rssi_min = rssi;
             rssi_max = rssi;
         } else {
@@ -107,61 +51,76 @@ public:
         count_all += 1;
     }
 
-    int32_t count_all;
-    int32_t rssi_sum;
-    int8_t rssi_min;
-    int8_t rssi_max;
+    int32_t count_all=0;
+    int32_t rssi_sum=0;
+    int8_t rssi_min=0;
+    int8_t rssi_max=0;
 };
 
 typedef std::unordered_map<uint64_t, antennaItem> antenna_stat_t;
 
-class Aggregator : public BaseAggregator
-{
+// This class processes the received wifi data (decryption and FEC)
+// and forwards it via UDP.
+class Aggregator :  public FECDecoder {
 public:
-    Aggregator(const std::string &client_addr, int client_port, int k, int n, const std::string &keypair);
+    Aggregator(const std::string &client_addr, int client_udp_port,uint8_t radio_port, int k, int n, const std::string &keypair);
+
     ~Aggregator();
-    virtual void process_packet(const uint8_t *buf, size_t size, uint8_t wlan_idx, const uint8_t *antenna, const int8_t *rssi, sockaddr_in *sockaddr);
-    virtual void dump_stats(FILE *fp);
+
+    void
+    processPacket(uint8_t wlan_idx,const pcap_pkthdr& hdr,const uint8_t* pkt);
+
+    void dump_stats(FILE *fp) ;
+    // the port data is forwarded to
+    const int CLIENT_UDP_PORT;
+    // do not pass data from the receiver to the Aggregator where radio port doesn't match
+    const uint8_t RADIO_PORT;
 private:
-    void send_packet(int ring_idx, int fragment_idx);
-    void apply_fec(int ring_idx);
-    void log_rssi(const sockaddr_in *sockaddr, uint8_t wlan_idx, const uint8_t *ant, const int8_t *rssi);
-    int get_block_ring_idx(uint64_t block_idx);
-    int rx_ring_push(void);
-    fec_t* fec_p;
-    int fec_k;  // RS number of primary fragments in block
-    int fec_n;  // RS total number of fragments in block
+    void sendPacketViaUDP(const uint8_t *packet,std::size_t packetSize) const{
+        send(sockfd,packet,packetSize, MSG_DONTWAIT);
+    }
+    const std::chrono::steady_clock::time_point INIT_TIME=std::chrono::steady_clock::now();
+    Decryptor mDecryptor;
     int sockfd;
-    uint32_t seq;
-    rx_ring_item_t rx_ring[RX_RING_SIZE];
-    int rx_ring_front; // current packet
-    int rx_ring_alloc; // number of allocated entries
-    uint64_t last_known_block;  //id of last known block
-
-    // rx->tx keypair
-    uint8_t rx_secretkey[crypto_box_SECRETKEYBYTES];
-    uint8_t tx_publickey[crypto_box_PUBLICKEYBYTES];
-    uint8_t session_key[crypto_aead_chacha20poly1305_KEYBYTES];
-
     antenna_stat_t antenna_stat;
-    uint32_t count_p_all;
-    uint32_t count_p_dec_err;
-    uint32_t count_p_dec_ok;
-    uint32_t count_p_fec_recovered;
-    uint32_t count_p_lost;
-    uint32_t count_p_bad;
+    uint32_t count_p_all=0;
+    uint32_t count_p_bad=0;
+    uint32_t count_p_dec_err=0;
+    uint32_t count_p_dec_ok=0;
+    OpenHDStatisticsWriter openHdStatisticsWriter{RADIO_PORT};
+    OpenHDStatisticsWriter::Data statistics{};
+private:
+#ifdef ENABLE_ADVANCED_DEBUGGING
+    // time between <packet arrives at pcap processing queue> <<->> <packet is pulled out of pcap by RX>
+    AvgCalculator avgPcapToApplicationLatency;
+    AvgCalculator2 avgLatencyBeaconPacketLatency;
+#endif
 };
 
-class Receiver
-{
+// This class listens for WIFI data on the specified wlan for wifi packets with the right RADIO_PORT
+// Processing of data is done by the Aggregator
+class PcapReceiver {
 public:
-    Receiver(const char* wlan, int wlan_idx, int port, BaseAggregator* agg);
-    ~Receiver();
-    void loop_iter(void);
-    int getfd(void){ return fd; }
-private:
-    int wlan_idx;
-    BaseAggregator *agg;
+    PcapReceiver(const std::string& wlan, int wlan_idx, int radio_port, Aggregator *agg);
+
+    ~PcapReceiver();
+
+    void loop_iter();
+
+    void xLoop();
+
+    int getfd() const { return fd; }
+
+public:
+    // the wifi interface this receiver listens on
+    const int WLAN_IDX;
+    // the radio port it filters pacp packets for
+    const int RADIO_PORT;
+    // processes received packets
+public:
+    Aggregator* agg;
+    // this fd is created by pcap
     int fd;
     pcap_t *ppcap;
 };
+

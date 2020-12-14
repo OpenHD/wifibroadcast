@@ -8,15 +8,13 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * Alternatively, this software may be distributed under the terms of BSD
- * license.
- *
- * See COPYING for more details.
+ * Alternatively, this software may be distributed under the terms of ISC
+ * license, see COPYING for more details.
  */
+#include "radiotap_iter.h"
+#include "platform.h"
 
-#include "ieee80211_radiotap.h"
-
-/* function prototypes and related defs are in include/net/cfg80211.h */
+/* function prototypes and related defs are in radiotap_iter.h */
 
 static const struct radiotap_align_size rtap_namespace_sizes[] = {
 	[IEEE80211_RADIOTAP_TSFT] = { .align = 8, .size = 8, },
@@ -39,13 +37,15 @@ static const struct radiotap_align_size rtap_namespace_sizes[] = {
 	[IEEE80211_RADIOTAP_DATA_RETRIES] = { .align = 1, .size = 1, },
 	[IEEE80211_RADIOTAP_MCS] = { .align = 1, .size = 3, },
 	[IEEE80211_RADIOTAP_AMPDU_STATUS] = { .align = 4, .size = 8, },
+	[IEEE80211_RADIOTAP_VHT] = { .align = 2, .size = 12, },
+	[IEEE80211_RADIOTAP_TIMESTAMP] = { .align = 8, .size = 12, },
 	/*
 	 * add more here as they are defined in radiotap.h
 	 */
 };
 
 static const struct ieee80211_radiotap_namespace radiotap_ns = {
-	.n_bits = ARRAY_SIZE(rtap_namespace_sizes),
+	.n_bits = sizeof(rtap_namespace_sizes) / sizeof(rtap_namespace_sizes[0]),
 	.align_size = rtap_namespace_sizes,
 };
 
@@ -84,8 +84,7 @@ static const struct ieee80211_radiotap_namespace radiotap_ns = {
  * get_unaligned((type *)iterator.this_arg) to dereference
  * iterator.this_arg for type "type" safely on all arches.
  *
- * Example code:
- * See Documentation/networking/radiotap-headers.txt
+ * Example code: parse.c
  */
 
 int ieee80211_radiotap_iterator_init(
@@ -93,7 +92,7 @@ int ieee80211_radiotap_iterator_init(
 	struct ieee80211_radiotap_header *radiotap_header,
 	int max_length, const struct ieee80211_radiotap_vendor_namespaces *vns)
 {
-	/* check the radiotap header can actually be present */
+	/* must at least have the radiotap header */
 	if (max_length < (int)sizeof(struct ieee80211_radiotap_header))
 		return -EINVAL;
 
@@ -116,6 +115,10 @@ int ieee80211_radiotap_iterator_init(
 	iterator->_vns = vns;
 	iterator->current_namespace = &radiotap_ns;
 	iterator->is_radiotap_ns = 1;
+#ifdef RADIOTAP_SUPPORT_OVERRIDES
+	iterator->n_overrides = 0;
+	iterator->overrides = NULL;
+#endif
 
 	/* find payload start allowing for extended bitmap(s) */
 
@@ -178,6 +181,28 @@ static void find_ns(struct ieee80211_radiotap_iterator *iterator,
 	}
 }
 
+#ifdef RADIOTAP_SUPPORT_OVERRIDES
+static int find_override(struct ieee80211_radiotap_iterator *iterator,
+			 int *align, int *size)
+{
+	int i;
+
+	if (!iterator->overrides)
+		return 0;
+
+	for (i = 0; i < iterator->n_overrides; i++) {
+		if (iterator->_arg_index == iterator->overrides[i].field) {
+			*align = iterator->overrides[i].align;
+			*size = iterator->overrides[i].size;
+			if (!*align) /* erroneous override */
+				return 0;
+			return 1;
+		}
+	}
+
+	return 0;
+}
+#endif
 
 
 /**
@@ -194,7 +219,7 @@ static void find_ns(struct ieee80211_radiotap_iterator *iterator,
  * present fields.  @this_arg can be changed by the caller (eg,
  * incremented to move inside a compound argument like
  * IEEE80211_RADIOTAP_CHANNEL).  The args pointed to are in
- * little-endian format whatever the endianess of your CPU.
+ * little-endian format whatever the endianness of your CPU.
  *
  * Alignment Gotcha:
  * You must take care when dereferencing iterator.this_arg
@@ -231,6 +256,11 @@ int ieee80211_radiotap_iterator_next(
 			size = 6;
 			break;
 		default:
+#ifdef RADIOTAP_SUPPORT_OVERRIDES
+			if (find_override(iterator, &align, &size)) {
+				/* all set */
+			} else
+#endif
 			if (!iterator->current_namespace ||
 			    iterator->_arg_index >= iterator->current_namespace->n_bits) {
 				if (iterator->current_namespace == &radiotap_ns)

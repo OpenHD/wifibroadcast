@@ -35,127 +35,153 @@
 #include <sodium.h>
 #include <endian.h>
 #include <string>
+#include <vector>
+#include <chrono>
+#include <optional>
 
-#define MAX_PACKET_SIZE 1510
-#define MAX_RX_INTERFACES 8
-
-extern std::string string_format(const char *format, ...);
-
-/* this is the template radiotap header we send packets out with */
-
-
-#define IEEE80211_RADIOTAP_MCS_HAVE_BW    0x01
-#define IEEE80211_RADIOTAP_MCS_HAVE_MCS   0x02
-#define IEEE80211_RADIOTAP_MCS_HAVE_GI    0x04
-#define IEEE80211_RADIOTAP_MCS_HAVE_FMT   0x08
-
-#define IEEE80211_RADIOTAP_MCS_BW_20    0
-#define IEEE80211_RADIOTAP_MCS_BW_40    1
-#define IEEE80211_RADIOTAP_MCS_BW_20L   2
-#define IEEE80211_RADIOTAP_MCS_BW_20U   3
-#define IEEE80211_RADIOTAP_MCS_SGI      0x04
-#define IEEE80211_RADIOTAP_MCS_FMT_GF   0x08
-
-#define IEEE80211_RADIOTAP_MCS_HAVE_FEC   0x10
-#define IEEE80211_RADIOTAP_MCS_HAVE_STBC  0x20
-#define IEEE80211_RADIOTAP_MCS_FEC_LDPC   0x10
-#define	IEEE80211_RADIOTAP_MCS_STBC_MASK  0x60
-#define	IEEE80211_RADIOTAP_MCS_STBC_1  1
-#define	IEEE80211_RADIOTAP_MCS_STBC_2  2
-#define	IEEE80211_RADIOTAP_MCS_STBC_3  3
-#define	IEEE80211_RADIOTAP_MCS_STBC_SHIFT 5
-
-#define MCS_KNOWN (IEEE80211_RADIOTAP_MCS_HAVE_MCS | IEEE80211_RADIOTAP_MCS_HAVE_BW | IEEE80211_RADIOTAP_MCS_HAVE_GI | IEEE80211_RADIOTAP_MCS_HAVE_STBC | IEEE80211_RADIOTAP_MCS_HAVE_FEC)
-
-// Default is MCS#1 -- QPSK 1/2 40MHz SGI -- 30 Mbit/s
-// MCS_FLAGS = (IEEE80211_RADIOTAP_MCS_BW_40 | IEEE80211_RADIOTAP_MCS_SGI | (IEEE80211_RADIOTAP_MCS_STBC_1 << IEEE80211_RADIOTAP_MCS_STBC_SHIFT))
-
-static uint8_t radiotap_header[]  __attribute__((unused)) = {
-    0x00, 0x00, // <-- radiotap version
-    0x0d, 0x00, // <- radiotap header length
-    0x00, 0x80, 0x08, 0x00, // <-- radiotap present flags:  RADIOTAP_TX_FLAGS + RADIOTAP_MCS
-    0x08, 0x00,  // RADIOTAP_F_TX_NOACK
-    MCS_KNOWN , 0x00, 0x00 // bitmap, flags, mcs_index
+extern "C"{
+#include "ExternalCSources/radiotap.h"
 };
+#include "Ieee80211Header.hpp"
+#include "RadiotapHeader.hpp"
 
-// offset of MCS_FLAGS and MCS index
-#define MCS_FLAGS_OFF 11
-#define MCS_IDX_OFF 12
-
-//the last byte of the mac address is recycled as a port number
-#define SRC_MAC_LASTBYTE 15
-#define DST_MAC_LASTBYTE 21
-#define FRAME_SEQ_LB 22
-#define FRAME_SEQ_HB 23
-
-static uint8_t ieee80211_header[] __attribute__((unused)) = {
-    0x08, 0x01, 0x00, 0x00,
-    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-    0x13, 0x22, 0x33, 0x44, 0x55, 0x66,
-    0x13, 0x22, 0x33, 0x44, 0x55, 0x66,
-    0x00, 0x00,  // seq num << 4 + fragment num
-};
-
-/*
- Wifibroadcast protocol:
-
- radiotap_header
-   ieee_80211_header
-     wblock_hdr_t   { packet_type, nonce = (block_idx << 8 + fragment_idx) }
-       wpacket_hdr_t  { packet_size }  #
-         data                          #
-                                       +-- encrypted
-
+/**
+ * Wifibroadcast protocol:
+ * radiotap_header
+ * * ieee_80211_header
+ * ** if WFB_PACKET_KEY
+ * *** WBSessionKeyPacket
+ * ** if WFB_PACKET_DATA
+ * *** WBDataHeader
+ * **** encrypted payload data (dynamic size)
  */
 
-// nonce:  56bit block_idx + 8bit fragment_idx
+static constexpr const uint8_t WFB_PACKET_DATA=0x1;
+static constexpr const uint8_t WFB_PACKET_KEY=0x2;
+// for testing, do not use in production (just don't send it on the tx)
+static constexpr const uint8_t WFB_PACKET_LATENCY_BEACON=0x3;
 
-#define BLOCK_IDX_MASK ((1LLU << 56) - 1)
-#define MAX_BLOCK_IDX ((1LLU << 55) - 1)
+// the encryption key is sent every n seconds ( but not re-created every n seconds, it is only re-created when reaching the max sequence number)
+// also it is only sent if a new packet needs to be transmitted to save bandwidth
+// it needs to be sent multiple times instead of once since it might get lost on the first or nth time respective
+static constexpr const auto SESSION_KEY_ANNOUNCE_DELTA=std::chrono::seconds(1);
 
-
-#define WFB_PACKET_DATA 0x1
-#define WFB_PACKET_KEY 0x2
-
-#define SESSION_KEY_ANNOUNCE_MSEC 1000
-#define RX_ANT_MAX  4
-
-// Header for forwarding raw packets from RX host to Aggregator in UDP packets
-typedef struct {
-    uint8_t wlan_idx;
-    uint8_t antenna[RX_ANT_MAX]; //RADIOTAP_ANTENNA, list of antenna idx, 0xff for unused slot
-    int8_t rssi[RX_ANT_MAX]; //RADIOTAP_DBM_ANTSIGNAL, list of rssi for corresponding antenna idx
-} __attribute__ ((packed)) wrxfwd_t;
-
-// Network packet headers. All numbers are in network (big endian) format
-// Encrypted packets can be either session key or data packet.
 
 // Session key packet
-
-typedef struct {
-    uint8_t packet_type;
+// Since the size of each session key packet never changes, this memory layout is the easiest
+class WBSessionKeyPacket{
+public:
+    // note how this member doesn't add up to the size of this class (c++ is so great !)
+    static constexpr auto SIZE_BYTES=(sizeof(uint8_t)+crypto_box_NONCEBYTES+crypto_aead_chacha20poly1305_KEYBYTES + crypto_box_MACBYTES);
+public:
+    const uint8_t packet_type=WFB_PACKET_KEY;
     uint8_t session_key_nonce[crypto_box_NONCEBYTES];  // random data
     uint8_t session_key_data[crypto_aead_chacha20poly1305_KEYBYTES + crypto_box_MACBYTES]; // encrypted session key
-} __attribute__ ((packed)) wsession_key_t;
+}__attribute__ ((packed));
+static_assert(sizeof(WBSessionKeyPacket) == WBSessionKeyPacket::SIZE_BYTES, "ALWAYS_TRUE");
 
-// Data packet. Embed FEC-encoded data
 
-typedef struct {
-    uint8_t packet_type;
-    uint64_t nonce;  // big endian, nonce = block_idx << 8 + fragment_idx
-}  __attribute__ ((packed)) wblock_hdr_t;
+// This header comes with each FEC packet (primary or secondary)
+// This part is not encrypted !
+class WBDataHeader{
+public:
+    // nonce:  56bit block_idx + 8bit fragment_idx
+    static constexpr auto BLOCK_IDX_MASK=((1LLU << 56) - 1);
+    static constexpr uint64_t MAX_BLOCK_IDX=((1LLU << 55) - 1);
+    // conversion from / to nonce
+    static uint64_t calculateNonce(const uint64_t block_idx,const uint8_t fragment_idx){
+        assert(block_idx<=MAX_BLOCK_IDX); // should never happen
+        return htobe64(((block_idx & BLOCK_IDX_MASK) << 8) + fragment_idx);
+    }
+    static uint64_t calculateBlockIdx(const uint64_t nonce){
+        return be64toh(nonce) >> 8;
+    }
+    static uint8_t calculateFragmentIdx(const uint64_t nonce){
+        return (uint8_t) (be64toh(nonce) & 0xff);
+    }
+    explicit WBDataHeader(uint64_t nonce1):nonce(nonce1){};
+    uint8_t getFragmentIdx()const{
+        return calculateFragmentIdx(nonce);
+    }
+    uint64_t getBlockIdx()const{
+        return calculateBlockIdx(nonce);
+    }
+public:
+    const uint8_t packet_type=WFB_PACKET_DATA;
+    const uint64_t nonce;  // big endian, nonce = block_idx << 8 + fragment_idx
+}  __attribute__ ((packed));
+static_assert(sizeof(WBDataHeader)==8+1,"ALWAYS_TRUE");
 
-// Plain data packet after FEC decode
 
-typedef struct {
+// this header is written before the data of each primary FEC fragment
+// ONLY for primary FEC fragments though ! (up to n bytes workaround)
+class FECDataHeader {
+private:
+    // private member to make sure it has always the right endian
     uint16_t packet_size; // big endian
-}  __attribute__ ((packed)) wpacket_hdr_t;
+public:
+    explicit FECDataHeader(std::size_t packetSize1){
+        // convert to big endian if needed
+        packet_size=htobe16(packetSize1);
+    }
+    // convert from big endian if needed
+    std::size_t get()const{
+        return be16toh(packet_size);
+    }
+}  __attribute__ ((packed));
+static_assert(sizeof(FECDataHeader) == 2, "ALWAYS_TRUE");
 
-#define MAX_PAYLOAD_SIZE (MAX_PACKET_SIZE - sizeof(radiotap_header) - sizeof(ieee80211_header) - sizeof(wblock_hdr_t) - crypto_aead_chacha20poly1305_ABYTES - sizeof(wpacket_hdr_t))
-#define MAX_FEC_PAYLOAD  (MAX_PACKET_SIZE - sizeof(radiotap_header) - sizeof(ieee80211_header) - sizeof(wblock_hdr_t) - crypto_aead_chacha20poly1305_ABYTES)
-#define MAX_FORWARDER_PACKET_SIZE (MAX_PACKET_SIZE - sizeof(radiotap_header) - sizeof(ieee80211_header))
+// This one does not specify if it is an FEC data or FEC correction packet (see WBDataHeader / FECDataHeader)
+// but it is always of type WFB_PACKET_DATA
+// NOTE: This cannot be casted directly from / to a memory location (unlike the classes above) since the payload size is dynamic
+// Use the constructor(s) or use the createFromRawMemory() method
+class WBDataPacket{
+public:
+    // construct in c-style (light),used on TX
+    WBDataPacket(const uint64_t nonce1,const uint8_t* payload1,const std::size_t payloadSize1):
+            wbDataHeader(nonce1), payload(payload1), payloadSize(payloadSize1){};
+    // construct in c++-style (just as light,too),used on TX
+    WBDataPacket(const uint64_t nonce1,const std::shared_ptr<std::vector<uint8_t>>& payload1):
+            wbDataHeader(nonce1), payload(payload1->data()), payloadSize(payload1->size()), optionalPayloadDataReference(payload1){};
+    // to re-interpret on the RX
+    static WBDataPacket createFromRawMemory(const uint8_t* data,std::size_t dataSize){
+        assert(data[0]==WFB_PACKET_DATA);
+        const WBDataHeader* wbDataHeader=(WBDataHeader*)data;
+        return {wbDataHeader->nonce,&data[sizeof(WBDataHeader)],dataSize-sizeof(WBDataHeader)};
+    }
+    // don't allow copying or moving, since creating a new one is light enough
+    //WBDataPacket(const WBDataPacket&)=delete;
+    //WBDataPacket(const WBDataPacket&&)=delete;
+public:
+    // each data packet has the WBDataHeader
+    const WBDataHeader wbDataHeader;
+    // If this is an FEC data packet, first two bytes of payload are the FECDataHeader
+    // If this is an FEC correction packet, that's not the case
+    // Use the "Encryptor" class to encrypt / decrypt the payload
+    const uint8_t* payload;
+    const std::size_t payloadSize;
+    // this one is for the c++-constructor only
+    const std::shared_ptr<std::vector<uint8_t>> optionalPayloadDataReference=nullptr;
+};
 
-int open_udp_socket_for_rx(int port);
-uint64_t get_time_ms(void);
 
-#endif
+struct LatencyTestingPacket{
+    const uint8_t packet_type=WFB_PACKET_LATENCY_BEACON;
+    const int64_t timestampNs=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}__attribute__ ((packed));
+
+// The final packet size ( radiotap header + iee80211 header + payload ) is never bigger than that
+// the reasoning behind this value: https://github.com/svpcom/wifibroadcast/issues/69
+static constexpr const auto MAX_PCAP_PACKET_SIZE=1510;
+static constexpr const auto MAX_RX_INTERFACES=8;
+
+// 1510-(13+24+9+16+2)
+//A: Any UDP with packet size <= 1466. For example x264 inside RTP or Mavlink.
+static constexpr const auto MAX_PAYLOAD_SIZE=(MAX_PCAP_PACKET_SIZE - RadiotapHeader::SIZE_BYTES - Ieee80211Header::SIZE_BYTES - sizeof(WBDataHeader) - crypto_aead_chacha20poly1305_ABYTES - sizeof(FECDataHeader));
+static constexpr const auto MAX_FEC_PAYLOAD=(MAX_PCAP_PACKET_SIZE - RadiotapHeader::SIZE_BYTES - Ieee80211Header::SIZE_BYTES - sizeof(WBDataHeader) - crypto_aead_chacha20poly1305_ABYTES);
+static constexpr const auto MAX_FORWARDER_PACKET_SIZE=(MAX_PCAP_PACKET_SIZE - RadiotapHeader::SIZE_BYTES - Ieee80211Header::SIZE_BYTES);
+
+// comment this for a release
+#define ENABLE_ADVANCED_DEBUGGING
+
+#endif //__WIFIBROADCAST_HPP__

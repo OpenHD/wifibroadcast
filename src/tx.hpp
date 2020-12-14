@@ -25,115 +25,57 @@
 #include <string>
 #include <vector>
 #include <string.h>
-#include "fec.h"
 #include "wifibroadcast.hpp"
 #include <stdexcept>
+#include <iostream>
 
-class Transmitter
-{
+#include "Encryption.hpp"
+#include "FEC.hpp"
+#include "Helper.hpp"
+#include "RawTransmitter.hpp"
+#include "HelperSources/TimeHelper.hpp"
+
+
+// WBTransmitter uses an UDP port as input for the data stream
+// Each input UDP port has to be assigned with a Unique ID to differentiate between streams on the RX
+// It does all the FEC encoding & encryption for this stream, then uses PcapTransmitter to inject the generated packets
+class WBTransmitter: private FECEncoder{
 public:
-    Transmitter(int k, int m, const std::string &keypair);
-    virtual ~Transmitter();
-    void send_packet(const uint8_t *buf, size_t size);
-    void send_session_key(void);
-    virtual void select_output(int idx) = 0;
-protected:
-    virtual void inject_packet(const uint8_t *buf, size_t size) = 0;
-
+    WBTransmitter(RadiotapHeader radiotapHeader, int k, int m, const std::string &keypair, uint8_t radio_port,
+                  int udp_port, const std::string &wlan);
+    ~WBTransmitter();
 private:
-    void send_block_fragment(size_t packet_size);
-    void make_session_key(void);
-
-    fec_t* fec_p;
-    int fec_k;  // RS number of primary fragments in block
-    int fec_n;  // RS total number of fragments in block
-    uint64_t block_idx; //block_idx << 8 + fragment_idx = nonce (64bit)
-    uint8_t fragment_idx;
-    uint8_t** block;
-    size_t max_packet_size;
-
-    // tx->rx keypair
-    uint8_t tx_secretkey[crypto_box_SECRETKEYBYTES];
-    uint8_t rx_publickey[crypto_box_PUBLICKEYBYTES];
-    uint8_t session_key[crypto_aead_chacha20poly1305_KEYBYTES];
-    wsession_key_t session_key_packet;
+    // process the input data stream
+    void processInputPacket(const uint8_t *buf, size_t size);
+    // send the current session key via WIFI (located in mEncryptor)
+    void sendSessionKey();
+    // for the FEC encoder
+    void sendFecBlock(const WBDataPacket &wbDataPacket);
+    // send packet by prefixing data with the current IEE and Radiotap header
+    void sendPacket(const AbstractWBPacket& abstractWbPacket);
+    // this one is used for injecting packets
+    PcapTransmitter mPcapTransmitter;
+    //RawSocketTransmitter mPcapTransmitter;
+    // the radio port is what is used as an index to multiplex multiple streams (telemetry,video,...)
+    // into the one wfb stream
+    const uint8_t RADIO_PORT;
+    // the rx socket is set by opening the right UDP port
+    int mInputSocket;
+    // Used to encrypt the packets
+    Encryptor mEncryptor;
+    // Used to inject packets
+    Ieee80211Header mIeee80211Header;
+    // this one never changes,also used to inject packets
+    const RadiotapHeader mRadiotapHeader;
+    uint16_t ieee80211_seq=0;
+    // statistics for console
+    int64_t nPacketsFromUdpPort=0;
+    int64_t nInjectedPackets=0;
+    const std::chrono::steady_clock::time_point INIT_TIME=std::chrono::steady_clock::now();
+    static constexpr const std::chrono::nanoseconds LOG_INTERVAL=std::chrono::milliseconds(1000);
+    Chronometer pcapInjectionTime{"PcapInjectionTime"};
+public:
+    // run as long as nothing goes completely wrong
+    void loop();
 };
 
-
-class PcapTransmitter : public Transmitter
-{
-public:
-    PcapTransmitter(int k, int m, const std::string &keypair, uint8_t radio_port, const std::vector<std::string> &wlans);
-    virtual ~PcapTransmitter();
-    virtual void select_output(int idx) { current_output = idx; }
-private:
-    virtual void inject_packet(const uint8_t *buf, size_t size);
-    uint8_t radio_port;
-    int current_output;
-    uint16_t ieee80211_seq;
-    std::vector<pcap_t*> ppcap;
-};
-
-
-class UdpTransmitter : public Transmitter
-{
-public:
-    UdpTransmitter(int k, int m, const std::string &keypair, const std::string &client_addr, int client_port) : Transmitter(k, m, keypair)
-    {
-        sockfd = open_udp_socket(client_addr, client_port);
-    }
-
-    virtual ~UdpTransmitter()
-    {
-        close(sockfd);
-    }
-
-    virtual void select_output(int /*idx*/){}
-
-private:
-    virtual void inject_packet(const uint8_t *buf, size_t size)
-    {
-        wrxfwd_t fwd_hdr = { .wlan_idx = (uint8_t)(rand() % 2) };
-
-        memset(fwd_hdr.antenna, 0xff, sizeof(fwd_hdr.antenna));
-        memset(fwd_hdr.rssi, SCHAR_MIN, sizeof(fwd_hdr.rssi));
-
-        fwd_hdr.antenna[0] = (uint8_t)(rand() % 2);
-        fwd_hdr.rssi[0] = (int8_t)(rand() & 0xff);
-
-        struct iovec iov[2] = {{ .iov_base = (void*)&fwd_hdr,
-                                 .iov_len = sizeof(fwd_hdr)},
-                               { .iov_base = (void*)buf,
-                                 .iov_len = size }};
-
-        struct msghdr msghdr = { .msg_name = NULL,
-                                 .msg_namelen = 0,
-                                 .msg_iov = iov,
-                                 .msg_iovlen = 2,
-                                 .msg_control = NULL,
-                                 .msg_controllen = 0,
-                                 .msg_flags = 0};
-
-        sendmsg(sockfd, &msghdr, MSG_DONTWAIT);
-    }
-
-    int open_udp_socket(const std::string &client_addr, int client_port)
-    {
-        struct sockaddr_in saddr;
-        int fd = socket(AF_INET, SOCK_DGRAM, 0);
-        if (fd < 0) throw std::runtime_error(string_format("Error opening socket: %s", strerror(errno)));
-
-        bzero((char *) &saddr, sizeof(saddr));
-        saddr.sin_family = AF_INET;
-        saddr.sin_addr.s_addr = inet_addr(client_addr.c_str());
-        saddr.sin_port = htons((unsigned short)client_port);
-
-        if (connect(fd, (struct sockaddr *) &saddr, sizeof(saddr)) < 0)
-        {
-            throw std::runtime_error(string_format("Connect error: %s", strerror(errno)));
-        }
-        return fd;
-    }
-
-    int sockfd;
-};
