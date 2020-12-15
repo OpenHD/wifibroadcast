@@ -174,7 +174,7 @@ namespace SocketHelper{
     }
     ///  taken from https://github.com/OpenHD/Open.HD/blob/2.0/wifibroadcast-base/tx_rawsock.c#L86
     // open wifi interface using a socket (somehow this works ?!)
-    static int openWifiInterfaceAsTx(std::string wifi) {
+    static int openWifiInterfaceAsTx(const std::string& wifi) {
         struct sockaddr_ll ll_addr{};
         struct ifreq ifr{};
         int sock = socket(AF_PACKET, SOCK_RAW, 0);

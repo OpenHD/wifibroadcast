@@ -28,36 +28,23 @@
 #include <string.h>
 #include "wifibroadcast.hpp"
 #include <stdexcept>
+#include <utility>
 #include "Encryption.hpp"
 #include "FEC.hpp"
 #include "Helper.hpp"
 #include "OpenHDStatisticsWriter.hpp"
 #include "HelperSources/TimeHelper.hpp"
 
-static constexpr const auto RX_ANT_MAX=4;
-class antennaItem {
-public:
-    antennaItem()=default;
+// A wifi card with more than 4 antennas still has to be found :)
+static constexpr const auto MAX_N_ANTENNAS_PER_WIFI_CARD=4;
+//
 
-    void addRSSI(int8_t rssi) {
-        if (count_all == 0) {
-            rssi_min = rssi;
-            rssi_max = rssi;
-        } else {
-            rssi_min = std::min(rssi, rssi_min);
-            rssi_max = std::max(rssi, rssi_max);
-        }
-        rssi_sum += rssi;
-        count_all += 1;
-    }
-
-    int32_t count_all=0;
-    int32_t rssi_sum=0;
-    int8_t rssi_min=0;
-    int8_t rssi_max=0;
+struct RssiForAntenna{
+    // which antenna the value refers to
+    const uint8_t antennaIdx;
+    // https://www.radiotap.org/fields/Antenna%20signal.html
+    const int8_t rssi;
 };
-
-typedef std::unordered_map<uint64_t, antennaItem> antenna_stat_t;
 
 // This class processes the received wifi data (decryption and FEC)
 // and forwards it via UDP.
@@ -82,14 +69,14 @@ private:
     const std::chrono::steady_clock::time_point INIT_TIME=std::chrono::steady_clock::now();
     Decryptor mDecryptor;
     int sockfd;
-    antenna_stat_t antenna_stat;
+    std::array<RSSIForWifiCard,MAX_RX_INTERFACES> rssiForWifiCard;
     uint32_t count_p_all=0;
     uint32_t count_p_bad=0;
     uint32_t count_p_dec_err=0;
     uint32_t count_p_dec_ok=0;
     OpenHDStatisticsWriter openHdStatisticsWriter{RADIO_PORT};
-    OpenHDStatisticsWriter::Data statistics{};
 private:
+    BaseAvgCalculator<int> nOfPacketsPolledFromPcapQueuePerIteration;
 #ifdef ENABLE_ADVANCED_DEBUGGING
     // time between <packet arrives at pcap processing queue> <<->> <packet is pulled out of pcap by RX>
     AvgCalculator avgPcapToApplicationLatency;
@@ -101,18 +88,17 @@ private:
 // Processing of data is done by the Aggregator
 class PcapReceiver {
 public:
+    //typedef std::function<void(const WBDataPacket &wbDataPacket)> PROCESS_PACKET_CALLBACK;
     PcapReceiver(const std::string& wlan, int wlan_idx, int radio_port, Aggregator *agg);
 
     ~PcapReceiver();
 
     void loop_iter();
 
-    void xLoop();
-
     int getfd() const { return fd; }
 
 public:
-    // the wifi interface this receiver listens on
+    // the wifi interface this receiver listens on (not the radio port)
     const int WLAN_IDX;
     // the radio port it filters pacp packets for
     const int RADIO_PORT;
@@ -122,5 +108,5 @@ public:
     // this fd is created by pcap
     int fd;
     pcap_t *ppcap;
+    Chronometer timeForParsingPackets{"PP"};
 };
-

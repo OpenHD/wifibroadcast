@@ -22,6 +22,8 @@
 
 // Wrapper around the Ieee80211 header (declared as raw array initially)
 // info https://witestlab.poly.edu/blog/802-11-wireless-lan-2/
+// In the way this is declared it is an IEE80211 data frame
+// https://en.wikipedia.org/wiki/802.11_Frame_Types
 class Ieee80211Header{
 public:
     static constexpr auto SIZE_BYTES=24;

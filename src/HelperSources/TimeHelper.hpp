@@ -287,7 +287,7 @@ public:
         const auto now=std::chrono::steady_clock::now();
         if(now-lastLog>interval){
             lastLog=now;
-            MLOGD2(mName)<<"Avg: "<<AvgCalculator::getAvgReadable(avgOnly);
+            MLOGD2(mName)<<"Avg: "<<AvgCalculator::getAvgReadable(avgOnly)<<"\n";
             reset();
         }
     }
