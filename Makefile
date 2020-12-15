@@ -4,6 +4,7 @@ COMMIT ?= $(shell git rev-parse HEAD)
 
 export VERSION COMMIT
 
+
 _LDFLAGS := $(LDFLAGS) -lrt -lpcap -lsodium
 _CFLAGS := $(CFLAGS) -Wall -O2 -DWFB_VERSION='"$(VERSION)-$(shell /bin/bash -c '_tmp=$(COMMIT); echo $${_tmp::8}')"'
 
