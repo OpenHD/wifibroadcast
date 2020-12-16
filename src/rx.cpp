@@ -1,6 +1,6 @@
-// -*- C++ -*-
-//
+
 // Copyright (C) 2017, 2018 Vasily Evseenko <svpcom@p2ptech.org>
+// 2020 Constantin Geier
 
 /*
  *   This program is free software; you can redistribute it and/or modify
@@ -16,35 +16,18 @@
  *   with this program; if not, write to the Free Software Foundation, Inc.,
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
-#include <assert.h>
-#include <stdio.h>
-#include <inttypes.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include "rx.hpp"
+#include "wifibroadcast.hpp"
+#include <cassert>
+#include <cstdio>
+#include <cinttypes>
 #include <unistd.h>
-#include <time.h>
-#include <sys/resource.h>
 #include <pcap/pcap.h>
 #include <poll.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <limits.h>
-
 #include <memory>
 #include <string>
-#include <memory>
 #include <chrono>
 #include <sstream>
-
-#include "wifibroadcast.hpp"
-#include "rx.hpp"
-extern "C"{
-#include "ExternalCSources/fec.h"
-#include "ExternalCSources/radiotap_iter.h"
-}
 
 namespace RawTransmitterHelper{
     // call before pcap_activate
@@ -80,7 +63,7 @@ namespace RawTransmitterHelper{
         //if (pcap_set_buffer_size(ppcap, 2048) !=0) throw runtime_error("set_buffer_size failed");
         // Important: Without enabling this mode pcap buffers quite a lot of packets starting with version 1.5.0 !
         // https://www.tcpdump.org/manpages/pcap_set_immediate_mode.3pcap.html
-        if(pcap_set_immediate_mode(ppcap,true)!=0)throw std::runtime_error(StringFormat::convert("pcap_set_immediate_mode failed: %s", errbuf));
+        if(pcap_set_immediate_mode(ppcap,true)!=0)throw std::runtime_error(StringFormat::convert("pcap_set_immediate_mode failed: %s", pcap_geterr(ppcap)));
         if (pcap_activate(ppcap) != 0) throw std::runtime_error(StringFormat::convert("pcap_activate failed: %s", pcap_geterr(ppcap)));
         if (pcap_setnonblock(ppcap, 1, errbuf) != 0) throw std::runtime_error(StringFormat::convert("set_nonblock failed: %s", errbuf));
 

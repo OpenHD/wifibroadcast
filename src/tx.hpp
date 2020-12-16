@@ -1,7 +1,7 @@
-// -*- C++ -*-
+
 //
 // Copyright (C) 2017, 2018 Vasily Evseenko <svpcom@p2ptech.org>
-
+// 2020 Constantin Geier
 /*
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -17,24 +17,23 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <stdint.h>
-#include <errno.h>
-#include <string>
-#include <vector>
-#include <string.h>
-#include "wifibroadcast.hpp"
-#include <stdexcept>
-#include <iostream>
-
 #include "Encryption.hpp"
 #include "FEC.hpp"
 #include "Helper.hpp"
 #include "RawTransmitter.hpp"
 #include "HelperSources/TimeHelper.hpp"
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <cstdint>
+#include <cerrno>
+#include <string>
+#include <vector>
+#include <cstring>
+#include "wifibroadcast.hpp"
+#include <stdexcept>
+#include <iostream>
 
 // WBTransmitter uses an UDP port as input for the data stream
 // Each input UDP port has to be assigned with a Unique ID to differentiate between streams on the RX

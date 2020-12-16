@@ -1,24 +1,22 @@
 #ifndef __WIFIBROADCAST_IEEE80211_HEADER_HPP__
 #define __WIFIBROADCAST_IEEE80211_HEADER_HPP__
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cerrno>
 #include <resolv.h>
-#include <string.h>
+#include <cstring>
 #include <utime.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <pcap.h>
 #include <endian.h>
 #include <fcntl.h>
-#include <time.h>
 #include <sys/mman.h>
 #include <sodium.h>
 #include <endian.h>
 #include <string>
 #include <vector>
-#include <chrono>
+#include <array>
 
 // Wrapper around the Ieee80211 header (declared as raw array initially)
 // info https://witestlab.poly.edu/blog/802-11-wireless-lan-2/

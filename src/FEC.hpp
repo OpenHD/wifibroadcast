@@ -5,25 +5,19 @@
 #ifndef WIFIBROADCAST_FEC_HPP
 #define WIFIBROADCAST_FEC_HPP
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <stdint.h>
-#include <errno.h>
+#include "wifibroadcast.hpp"
+extern "C"{
+#include "ExternalCSources/fec.h"
+}
+#include <cstdint>
+#include <cerrno>
 #include <string>
 #include <vector>
-#include <string.h>
-#include "wifibroadcast.hpp"
+#include <cstring>
 #include <stdexcept>
 #include <iostream>
 #include <functional>
 #include <map>
-#include "HelperSources/TimeHelper.hpp"
-#include "HelperSources/FixedSizeVector.h"
-
-extern "C"{
-#include "ExternalCSources/fec.h"
-}
 
 // c++ wrapper for the FEC library
 // If K and N were known at compile time we could make this much cleaner !
@@ -188,6 +182,7 @@ public:
         // mark it as available
         fragment_map[fragment_idx] = RxRingItem::AVAILABLE;
         availableFragmentsCount ++;
+        // store the size of the received fragment for later use
         originalSizeOfFragments[fragment_idx]=dataLen;
     }
     // if fragmentIdx<FEC_K this is a primary fragment
@@ -271,7 +266,6 @@ public:
         }
     }
     ~FECDecoder() = default;
-    AvgCalculator avgLatencyPacketInQueue;
 private:
     std::map<uint64_t,std::chrono::steady_clock::time_point> timePointPacketEnteredRxRing;
     uint64_t seq = 0;
@@ -346,7 +340,7 @@ private:
             // found time point for this fragment
             const auto latency=std::chrono::steady_clock::now()-search->second;
             timePointPacketEnteredRxRing.erase(search);
-            avgLatencyPacketInQueue.add(latency);
+            //avgLatencyPacketInQueue.add(latency);
             //std::cout<<"avgLatencyPacketInQueue "<<avgLatencyPacketInQueue.getAvgReadable()<<"\n";
         }else{
             //std::cout<<"Cannot calc latency (fec corrected packet)\n";

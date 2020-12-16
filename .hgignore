@@ -1,7 +1,0 @@
-syntax: glob
-
-rx
-tx
-*.orig
-*.swp
-

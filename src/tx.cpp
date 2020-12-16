@@ -1,7 +1,6 @@
-// -*- C++ -*-
-//
-// Copyright (C) 2017, 2018, 2019 Vasily Evseenko <svpcom@p2ptech.org>
 
+// Copyright (C) 2017, 2018, 2019 Vasily Evseenko <svpcom@p2ptech.org>
+// 2020 Constantin Geier
 /*
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -17,21 +16,22 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <stdio.h>
+#include <cstdio>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <poll.h>
-#include <time.h>
+#include <ctime>
 #include <sys/resource.h>
 #include <pcap/pcap.h>
-#include <assert.h>
+#include <cassert>
 #include <chrono>
 #include <memory>
 #include <string>
 #include <memory>
 #include <vector>
+#include <thread>
 
 #include "wifibroadcast.hpp"
 #include "tx.hpp"

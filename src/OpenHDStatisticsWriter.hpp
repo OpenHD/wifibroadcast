@@ -5,7 +5,7 @@
 #ifndef WIFIBROADCAST_OPENHDSTATISTICSWRITER_H
 #define WIFIBROADCAST_OPENHDSTATISTICSWRITER_H
 
-#include <stdint.h>
+#include <cstdint>
 #include "wifibroadcast.hpp"
 
 // TODO what happens here has to be decided yet

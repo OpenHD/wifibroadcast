@@ -1,7 +1,6 @@
-// -*- C++ -*-
-//
-// Copyright (C) 2017, 2018 Vasily Evseenko <svpcom@p2ptech.org>
 
+// Copyright (C) 2017, 2018 Vasily Evseenko <svpcom@p2ptech.org>
+// 2020 Constantin Geier
 /*
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,24 +15,24 @@
  *   with this program; if not, write to the Free Software Foundation, Inc.,
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
-#include <unordered_map>
-#include <stdint.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string>
-#include <string.h>
 #include "wifibroadcast.hpp"
-#include <stdexcept>
-#include <utility>
 #include "Encryption.hpp"
 #include "FEC.hpp"
 #include "Helper.hpp"
 #include "OpenHDStatisticsWriter.hpp"
 #include "HelperSources/TimeHelper.hpp"
+
+#include <unordered_map>
+#include <cstdint>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <cstdio>
+#include <cerrno>
+#include <string>
+#include <cstring>
+#include <stdexcept>
+#include <utility>
 
 // A wifi card with more than 4 antennas still has to be found :)
 static constexpr const auto MAX_N_ANTENNAS_PER_WIFI_CARD=4;

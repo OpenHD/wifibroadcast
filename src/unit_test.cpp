@@ -1,6 +1,3 @@
-// -*- C++ -*-
-//
-// Copyright (C) 2017, 2018 Vasily Evseenko <svpcom@p2ptech.org>
 
 /*
  *   This program is free software; you can redistribute it and/or modify
@@ -17,11 +14,11 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <assert.h>
-#include <stdio.h>
-#include <inttypes.h>
-#include <time.h>
-#include <limits.h>
+#include <cassert>
+#include <cstdio>
+#include <cinttypes>
+#include <ctime>
+#include <climits>
 
 #include <memory>
 #include <string>
@@ -33,6 +30,8 @@
 
 #include "Helper.hpp"
 #include "Encryption.hpp"
+
+// Simple unit testing for the lib that doesn't require wifi cards
 
 namespace TestFEC{
     // test the FECEncoder / FECDecoder tuple

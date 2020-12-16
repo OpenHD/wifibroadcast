@@ -10,7 +10,7 @@ The "radiotap stuff" comes from https://github.com/radiotap/radiotap-library
 https://github.com/vanhoefm/modwifi-tools/blob/master/ieee80211header.h
 https://github.com/qca/open-ath9k-htc-firmware
 https://befinitiv.wordpress.com/2015/02/22/finding-the-right-wifi-dongle-and-patching-its-kernel-driver-and-firmware/
-
+https://www.oreilly.com/library/view/80211-wireless-networks/0596100523/ch04.html
 
 // the firmware patches:
 https://github.com/qca/open-ath9k-htc-firmware/blob/d0ad09603867beab49ead2536b2239be43d6eb42/target_firmware/wlan/if_ath.c#L119
@@ -20,3 +20,4 @@ https://github.com/qca/open-ath9k-htc-firmware/blob/d0ad09603867beab49ead2536b22
 
 // and here is the function that is called
 https://github.com/qca/open-ath9k-htc-firmware/blob/d0ad09603867beab49ead2536b2239be43d6eb42/target_firmware/wlan/if_ath.c#L119
+

@@ -5,11 +5,12 @@
 #ifndef LIVEVIDEO10MS_TIMEHELPER_HPP
 #define LIVEVIDEO10MS_TIMEHELPER_HPP
 
-#include "AndroidLogger.hpp"
-#include "StringHelper.hpp"
 #include <chrono>
 #include <deque>
 #include <algorithm>
+#include <sstream>
+#include <iostream>
+#include "StringHelper.hpp"
 
 // This file holds various classes/namespaces usefully for measuring and comparing
 // latency samples
@@ -70,7 +71,7 @@ public:
     BaseAvgCalculator(){reset();};
     void add(const T& value){
         if(value<T(0)){
-            MLOGE<<"Cannot add negative value";
+            std::cout<<"Cannot add negative value\n";
             return;
         }
         sum+=value;
@@ -139,15 +140,7 @@ public:
                 return ss.str();
             }
             ss<<"min="<<MyTimeHelper::R(getMin())<<" max="<<MyTimeHelper::R(getMax())<<" avg="<<MyTimeHelper::R(getAvg());
-        }else if constexpr(std::is_same_v<T,std::size_t>){
-            // Class stores memory sizes
-            if(averageOnly){
-                ss<<"avg="<<StringHelper::memorySizeReadable(getAvg());
-                return ss.str();
-            }
-            ss<<"min="<<StringHelper::memorySizeReadable(getMin())<<" max="<<StringHelper::memorySizeReadable(getMax())<<" avg="<<StringHelper::memorySizeReadable(getAvg());
-        }
-        else{
+        }else{
             // Class stores other type of samples
             if(averageOnly){
                 ss<<"avg="<<getAvg();
@@ -180,7 +173,7 @@ public:
     //
     void add(const std::chrono::nanoseconds& value){
         if(value<std::chrono::nanoseconds(0)){
-            MLOGE<<"Cannot add negative value";
+            std::cout<<"Cannot add negative value\n";
             return;
         }
         samples.push_back(value);
@@ -287,7 +280,7 @@ public:
         const auto now=std::chrono::steady_clock::now();
         if(now-lastLog>interval){
             lastLog=now;
-            MLOGD2(mName)<<"Avg: "<<AvgCalculator::getAvgReadable(avgOnly)<<"\n";
+            std::cout<<(mName)<<"Avg: "<<AvgCalculator::getAvgReadable(avgOnly)<<"\n";
             reset();
         }
     }
@@ -320,37 +313,5 @@ public:
     }
 };
 
-class MeasureExecutionTime{
-private:
-    const std::chrono::steady_clock::time_point begin;
-    const std::string functionName;
-    const std::string tag;
-public:
-    MeasureExecutionTime(const std::string& tag,const std::string& functionName):functionName(functionName),tag(tag),begin(std::chrono::steady_clock::now()){}
-    ~MeasureExecutionTime(){
-        const auto duration=std::chrono::steady_clock::now()-begin;
-        //MLOGD2(tag)<<"Execution time for "<<functionName<<" is "<<std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()<<"ms";
-    }
-};
 
-
-// Macro to measure execution time of a specific function.
-// See https://stackoverflow.com/questions/22387586/measuring-execution-time-of-a-function-in-c/61886741#61886741
-// Example output: ExecutionTime: For DecodeMJPEGtoANativeWindowBuffer is 54ms
-// __CLASS_NAME__ comes from AndroidLogger
-#define MEASURE_FUNCTION_EXECUTION_TIME const MeasureExecutionTime measureExecutionTime(__CLASS_NAME__,__FUNCTION__);
-
-#include <chrono>
-#include <thread>
-namespace TestSleep{
-    //template <class _Rep, class _Period>
-    static void sleep(const std::chrono::steady_clock::duration &duration,const bool print=false){
-        const auto before=std::chrono::steady_clock::now();
-        std::this_thread::sleep_for(duration);
-        const auto actualSleepTime=std::chrono::steady_clock::now()-before;
-        if(print){
-            MLOGD<<"Slept for "<<MyTimeHelper::R(actualSleepTime)<<" instead of "<<MyTimeHelper::R(duration);
-        }
-    }
-}
 #endif //LIVEVIDEO10MS_TIMEHELPER_HPP

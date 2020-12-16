@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# returns the current date and time so you can track when the lib was built
 
 from __future__ import print_function
 

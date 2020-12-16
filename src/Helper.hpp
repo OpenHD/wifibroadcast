@@ -5,32 +5,36 @@
 #ifndef WIFIBROADCAST_SOCKETHELPER_H
 #define WIFIBROADCAST_SOCKETHELPER_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cerrno>
 #include <resolv.h>
-#include <string.h>
+#include <cstring>
 #include <utime.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <pcap.h>
 #include <endian.h>
 #include <fcntl.h>
-#include <time.h>
+#include <ctime>
 #include <sys/mman.h>
 #include <sodium.h>
 #include <endian.h>
 #include <string>
 #include <vector>
 #include <chrono>
-#include <stdarg.h>
+#include <cstdarg>
 #include <chrono>
-//
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netinet/ether.h>
 #include <netpacket/packet.h>
 #include <termio.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
+#include <iostream>
+#include <memory>
 
 // For all the stuff that was once in wifibroadcast.hpp
 

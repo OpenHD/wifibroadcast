@@ -3,12 +3,13 @@
 #define ENCRYPTION_HPP
 
 #include "wifibroadcast.hpp"
-#include <stdio.h>
+#include "Helper.hpp"
+#include <cstdio>
 #include <stdexcept>
 #include <vector>
 #include <optional>
 #include <iostream>
-#include "Helper.hpp"
+#include <sodium.h>
 
 // For developing or when encryption is not important, you can use this default seed to
 // create deterministic rx and tx keys
