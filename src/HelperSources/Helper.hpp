@@ -190,6 +190,12 @@ static std::vector<unsigned int> findMissingIndices(const std::vector<unsigned i
   }
   return indicesMissing;
 }
+static constexpr timeval durationToTimeval(nanoseconds dur) {
+  const auto secs = duration_cast<seconds>(dur);
+  dur -= secs;
+  const auto us = duration_cast<microseconds>(dur);
+  return timeval{secs.count(), (long int)us.count()};
+}
 }
 
 
