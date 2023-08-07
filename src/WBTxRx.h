@@ -232,7 +232,7 @@ class WBTxRx {
   uint16_t m_ieee80211_seq = 0;
   struct RadioPort{
      uint8_t encrypted: 1; // 1 bit encryption enabled / disabled
-     uint8_t multiplex_index: 7; // 7 bit multiplex / stream index (2^7=128 => 127 possible multiplexed streams since one is reserved for session keys)
+     uint8_t multiplex_index: 7; // 7 bit multiplex / stream index (2^7=128 => 126 possible multiplexed streams since one is reserved for session keys and we count from 0)
   }__attribute__ ((packed));
   static_assert(sizeof(RadioPort)==1);
   static uint8_t radio_port_to_uint8_t(const RadioPort& radio_port){
@@ -241,9 +241,9 @@ class WBTxRx {
      return ret;
   }
   static constexpr auto STREAM_INDEX_MIN =0;
-  static constexpr auto STREAM_INDEX_MAX =127;
+  static constexpr auto STREAM_INDEX_MAX =126;
   // Not available as a valid stream index, since used for the session packets
-  static constexpr auto STREAM_INDEX_SESSION_KEY_PACKETS =128;
+  static constexpr auto STREAM_INDEX_SESSION_KEY_PACKETS =127;
   uint64_t m_nonce=0;
   // For multiple RX cards the card with the highest rx rssi is used to inject packets on
   std::atomic<int> m_curr_tx_card=0;
