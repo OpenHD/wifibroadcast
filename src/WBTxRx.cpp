@@ -322,7 +322,7 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
   const auto radio_port_raw=rx_iee80211_hdr_openhd.get_valid_radio_port();
   const RadioPort& radio_port=*(RadioPort*)&radio_port_raw;
   const auto nonce=rx_iee80211_hdr_openhd.get_nonce();
-  m_console->debug("Packet enc:{} stream_idx:{} nonce:{}",radio_port.encrypted,radio_port.multiplex_index,nonce);
+  //m_console->debug("Packet enc:{} stream_idx:{} nonce:{}",radio_port.encrypted,radio_port.multiplex_index,nonce);
   // Quite likely an openhd packet (I'd say pretty much 100%) but not validated yet
   m_rx_stats.curr_n_likely_openhd_packets++;
   if(radio_port.multiplex_index== STREAM_INDEX_SESSION_KEY_PACKETS){
