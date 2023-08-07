@@ -605,6 +605,13 @@ void WBTxRx::rx_reset_stats() {
   m_rx_stats=RxStats{};
   m_rx_bitrate_calculator.reset();
   m_rx_packets_per_second_calculator.reset();
+  m_seq_nr_helper.reset();
+  for(int i=0;i<m_wifi_cards.size();i++){
+    RxStatsPerCard card_stats{};
+    card_stats.card_index=i;
+    m_rx_stats_per_card[i]=card_stats;
+    m_seq_nr_per_card[i]->reset();
+  }
 }
 
 int WBTxRx::get_curr_active_tx_card_idx() {

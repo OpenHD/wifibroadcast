@@ -171,9 +171,9 @@ class WBTxRx {
      int32_t curr_bits_per_second=-1;
      // n received valid session key packets
      int n_received_valid_session_key_packets=0;
-     // mcs index on the most recent okay data packet, if the card supports reporting it
+     // mcs index on the most recent valid data packet, if the card supports reporting it
      int last_received_packet_mcs_index=-1;
-     // channel width (20Mhz or 40Mhz) on the most recent received okay data packet, if the card supports reporting it
+     // channel width (20Mhz or 40Mhz) on the most recent received valid data packet, if the card supports reporting it
      int last_received_packet_channel_width=-1;
      // complicated but important metric in our case - how many "big gaps" we had in the last 1 second
      int16_t curr_big_gaps_counter=-1;
