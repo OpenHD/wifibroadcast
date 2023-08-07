@@ -24,7 +24,11 @@ WBTxRx::WBTxRx(std::vector<std::string> wifi_cards,Options options1)
     assert(false);
   }
   m_receive_pollfds.resize(m_wifi_cards.size());
-  m_rx_stats_per_card.resize(m_wifi_cards.size());
+  for(int i=0;i<m_wifi_cards.size();i++){
+    RxStatsPerCard tmp{};
+    tmp.card_index=i;
+    m_rx_stats_per_card.push_back(tmp);
+  }
   m_card_is_disconnected.resize(m_wifi_cards.size());
   for(int i=0;i<m_wifi_cards.size();i++){
     auto tmp=std::make_shared<seq_nr::Helper>();
@@ -626,10 +630,16 @@ std::string WBTxRx::tx_stats_to_string(const WBTxRx::TxStats& data) {
                      StringHelper::bitrate_readable(data.curr_bits_per_second_including_overhead));
 }
 std::string WBTxRx::rx_stats_to_string(const WBTxRx::RxStats& data) {
-  return fmt::format("RxStats[packets any:{} session:{} decrypted:{} Loss:{}% pps:{} bps:{} foreign:{}%]",
+  return fmt::format("RxStats[packets any:{} session:{} valid:{} Loss:{}% pps:{} bps:{} foreign:{}%]",
                          data.count_p_any,data.n_received_valid_session_key_packets,data.count_p_valid,
                          data.curr_packet_loss,data.curr_packets_per_second,data.curr_bits_per_second,
                      data.curr_link_pollution_perc);
+}
+std::string WBTxRx::rx_stats_per_card_to_string(
+    const WBTxRx::RxStatsPerCard& data) {
+  return fmt::format("Card{}[packets total:{} valid:{}, loss:{}% RSSI:{}]",data.card_index,
+                     data.count_p_any,data.count_p_valid,data.curr_packet_loss,
+                     (int)data.rssi_for_wifi_card.last_rssi);
 }
 
 void WBTxRx::tx_reset_stats() {
@@ -663,3 +673,4 @@ std::string WBTxRx::options_to_string(const std::vector<std::string>& wifi_cards
   return fmt::format("Id:{} Cards:{} Keypair:{} ",options.use_gnd_identifier ? "Ground":"Air",StringHelper::string_vec_as_string(wifi_cards),
                      options.encryption_key.value_or("DEFAULT_SEED"));
 }
+

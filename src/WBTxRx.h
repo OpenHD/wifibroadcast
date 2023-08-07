@@ -184,6 +184,7 @@ class WBTxRx {
      int curr_n_likely_openhd_packets=0;
    };
    struct RxStatsPerCard{
+     int card_index=0; // 0 for first card, 1 for second, ...
      RSSIForWifiCard rssi_for_wifi_card{};
      int64_t count_p_any=0;
      int64_t count_p_valid=0;
@@ -222,6 +223,7 @@ class WBTxRx {
    static_assert(MAX_PACKET_PAYLOAD_SIZE==1457);
    static std::string tx_stats_to_string(const TxStats& data);
    static std::string rx_stats_to_string(const RxStats& data);
+   static std::string rx_stats_per_card_to_string(const RxStatsPerCard& data);
  private:
   const Options m_options;
   std::shared_ptr<spdlog::logger> m_console;
