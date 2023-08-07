@@ -79,6 +79,8 @@ class WBTxRx {
     bool debug_encrypt_time= false;
     // Debug decrypt / validate checksum time
     bool debug_decrypt_time= false;
+    // Debug packet gaps
+    bool debug_packet_gaps= false;
   };
   explicit WBTxRx(std::vector<std::string> wifi_cards,Options options1);
   WBTxRx(const WBTxRx &) = delete;

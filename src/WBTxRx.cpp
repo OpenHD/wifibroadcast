@@ -51,8 +51,9 @@ WBTxRx::WBTxRx(std::vector<std::string> wifi_cards,Options options1)
   m_encryptor->makeNewSessionKey(m_tx_sess_key_packet.sessionKeyNonce,m_tx_sess_key_packet.sessionKeyData);
   // next session key in delta ms if packets are being fed
   m_session_key_next_announce_ts = std::chrono::steady_clock::now();
-  // Create a random nonce
+  // Per libsodium documentation, the first nonce should be chosen randomly
   m_nonce=randombytes_random();
+  m_seq_nr_helper.set_store_and_debug_gaps(m_options.debug_packet_gaps);
 }
 
 WBTxRx::~WBTxRx() {

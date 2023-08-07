@@ -48,13 +48,15 @@ class Helper{
       m_last_seq_nr=seq_nr;
       return;
     }
-    const auto diff=
-        diff_between_packets_rolling_uint16_t(m_last_seq_nr, seq_nr);
+    const auto diff=diff_between_packets_rolling_uint16_t(m_last_seq_nr, seq_nr);
     if(diff>1){
       // as an example, a diff of 2 means one packet is missing.
       m_n_missing_packets+=diff-1;
       m_n_received_packets++;
       // can be usefully for debugging
+      if(m_store_and_debug_gaps){
+        store_debug_gap(diff-1);
+      }
       //store_gap(diff-1);
       //m_console->debug("Diff:{}",diff);
       store_gap2(diff);
@@ -63,6 +65,9 @@ class Helper{
     }
     m_last_seq_nr=seq_nr;
     recalculate_loss_if_needed();
+  }
+  void set_store_and_debug_gaps(bool enable){
+    m_store_and_debug_gaps=enable;
   }
  private:
   // recalculate the loss in percentage in fixed intervals
@@ -86,16 +91,13 @@ class Helper{
       m_n_missing_packets=0;
     }
   }
-  void store_gap(int gap_size){
+  void store_debug_gap(int gap_size){
     m_gaps.push_back(gap_size);
-    const auto elasped=std::chrono::steady_clock::now()-m_last_log;
-    if(elasped>std::chrono::seconds(1)){
+    const auto elasped=std::chrono::steady_clock::now()-m_last_gap_log;
+    if(elasped>std::chrono::seconds(1) || m_gaps.size()>=MAX_N_STORED_GAPS){
       wifibroadcast::log::get_default()->debug("Gaps: {}",StringHelper::vectorAsString(m_gaps));
       m_gaps.resize(0);
-      m_last_log=std::chrono::steady_clock::now();
-    }
-    if(m_gaps.size()>=MAX_N_STORED_GAPS){
-      m_gaps.resize(0);
+      m_last_gap_log=std::chrono::steady_clock::now();
     }
   }
   void store_gap2(int gap_size){
@@ -118,11 +120,12 @@ class Helper{
   int m_n_received_packets=0;
   int m_n_missing_packets=0;
   int m_n_big_gaps=0;
-  std::chrono::steady_clock::time_point m_last_log;
+  std::chrono::steady_clock::time_point m_last_gap_log;
   std::chrono::steady_clock::time_point m_last_loss_perc_recalculation=std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point m_last_big_gaps_counter_recalculation=std::chrono::steady_clock::now();
   std::atomic<int16_t> m_curr_packet_loss{};
   std::atomic<int16_t> m_curr_gaps_counter{};
+  bool m_store_and_debug_gaps= false;
 };
 
 }
