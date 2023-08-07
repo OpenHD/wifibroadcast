@@ -326,6 +326,13 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
   // Quite likely an openhd packet (I'd say pretty much 100%) but not validated yet
   m_rx_stats.curr_n_likely_openhd_packets++;
   if(radio_port.multiplex_index== STREAM_INDEX_SESSION_KEY_PACKETS){
+    // encryption bit must always be set to off on session key packets, since encryption serves no purpose here
+    if(radio_port.encrypted){
+      if(m_options.advanced_debugging_rx){
+        m_console->warn("Cannot be session key packet - encryption flag set to true");
+      }
+      return;
+    }
     if (pkt_payload_size != sizeof(SessionKeyPacket)) {
       if(m_options.advanced_debugging_rx){
         m_console->warn("Cannot be session key packet - size mismatch {}",pkt_payload_size);
