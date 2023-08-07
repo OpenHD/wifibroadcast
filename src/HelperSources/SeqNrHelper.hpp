@@ -50,12 +50,13 @@ class Helper{
     }
     const auto diff=diff_between_packets_rolling_uint16_t(m_last_seq_nr, seq_nr);
     if(diff>1){
+      const auto gap_size=diff-1;
       // as an example, a diff of 2 means one packet is missing.
-      m_n_missing_packets+=diff-1;
+      m_n_missing_packets+=gap_size;
       m_n_received_packets++;
       // can be usefully for debugging
-      if(m_store_and_debug_gaps){
-        store_debug_gap(diff-1);
+      if(m_store_and_debug_gaps && gap_size>1){
+        store_debug_gap(gap_size);
       }
       //store_gap(diff-1);
       //m_console->debug("Diff:{}",diff);
