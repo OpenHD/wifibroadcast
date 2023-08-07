@@ -510,7 +510,8 @@ void WBTxRx::send_session_key() {
   Ieee80211HeaderOpenHD tmp_tx_hdr{};
   const auto unique_tx_id= m_options.use_gnd_identifier ? OPENHD_IEEE80211_HEADER_UNIQUE_ID_GND : OPENHD_IEEE80211_HEADER_UNIQUE_ID_AIR;
   tmp_tx_hdr.write_unique_id_src_dst(unique_tx_id);
-  tmp_tx_hdr.write_radio_port_src_dst(STREAM_INDEX_SESSION_KEY_PACKETS);
+  RadioPort radioPort{false,STREAM_INDEX_SESSION_KEY_PACKETS};
+  tmp_tx_hdr.write_radio_port_src_dst(radio_port_to_uint8_t(radioPort));
   tmp_tx_hdr.write_ieee80211_seq_nr(m_ieee80211_seq++);
   tmp_tx_hdr.write_nonce(m_nonce++);
 
