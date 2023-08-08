@@ -9,39 +9,45 @@
 
 #include <atomic>
 #include <map>
-#include <utility>
 #include <thread>
+#include <utility>
 
 #include "Encryption.hpp"
 #include "Ieee80211Header.hpp"
+#include "NonceSeqNrHelper.h"
 #include "RSSIForWifiCard.hpp"
 #include "RadiotapHeader.hpp"
 #include "SeqNrHelper.hpp"
 #include "TimeHelper.hpp"
 
 /**
- * This class exists to provide a clean, working interface to create a broadcast-like
- * bidirectional wifi link between an fpv air and (one or more) ground unit(s).
- * It hides away some nasty driver quirks, and offers
- * 1) A lot of usefully stats like packet loss,pollution, dbm, ...
- * 2) Multiplexing (stream_index) - multiple streams from air to ground / ground to air are possible
- * 3) Packet validation / encryption (selectable per packet)
- * 4) Multiple RX-cards (only one active tx at a time though)
- * Packets sent by an "air unit" are received by any listening ground unit (broadcast) that uses the same (encryption/validation) key-pair
- * Packets sent by an "ground unit" are received by any listening air unit (broadcast) that uses the same (encryption/validation) key-pair
- * Packets sent by an "air unit" are never received by another air unit (and reverse for ground unit)
- * (This is necessary due to AR9271 driver quirk - it gives injected packets back on the cb for received packets)
+ * This class exists to provide a clean, working interface to create a
+ * broadcast-like bidirectional wifi link between an fpv air and (one or more)
+ * ground unit(s). It hides away some nasty driver quirks, and offers 1) A lot
+ * of usefully stats like packet loss,pollution, dbm, ... 2) Multiplexing
+ * (stream_index) - multiple streams from air to ground / ground to air are
+ * possible 3) Packet validation / encryption (selectable per packet) 4)
+ * Multiple RX-cards (only one active tx at a time though) Packets sent by an
+ * "air unit" are received by any listening ground unit (broadcast) that uses
+ * the same (encryption/validation) key-pair Packets sent by an "ground unit"
+ * are received by any listening air unit (broadcast) that uses the same
+ * (encryption/validation) key-pair Packets sent by an "air unit" are never
+ * received by another air unit (and reverse for ground unit) (This is necessary
+ * due to AR9271 driver quirk - it gives injected packets back on the cb for
+ * received packets)
  *
- * It adds a minimal overhead of 16 bytes per data packet for validation / encryption
- * And - configurable - a couple of packets per second for the session key.
+ * It adds a minimal overhead of 16 bytes per data packet for validation /
+ * encryption And - configurable - a couple of packets per second for the
+ * session key.
  *
- * See executables/example_hello.cpp for a simple demonstration how to use this class.
+ * See executables/example_hello.cpp for a simple demonstration how to use this
+ * class.
  *
  * NOTE: Receiving of data is not started until startReceiving() is called !
  * (To give the user time to register all the receive handlers)
  *
- * NOTE2: You won't find any FEC or similar here - this class intentionally represents a lowe level
- * where FEC or similar can be added on top
+ * NOTE2: You won't find any FEC or similar here - this class intentionally
+ * represents a lowe level where FEC or similar can be added on top
  */
 class WBTxRx {
  public:
@@ -269,10 +275,10 @@ class WBTxRx {
   std::vector<pollfd> m_receive_pollfds;
   std::chrono::steady_clock::time_point m_last_receiver_error_log=std::chrono::steady_clock::now();
   // for calculating the packet loss on the rx side
-  seq_nr::Helper m_seq_nr_helper;
+  NonceSeqNrHelper m_seq_nr_helper;
   seq_nr::Helper m_seq_nr_helper_iee80211;
   // for calculating the loss per rx card (when multiple rx cards are used)
-  std::vector<std::shared_ptr<seq_nr::Helper>> m_seq_nr_per_card;
+  std::vector<std::shared_ptr<NonceSeqNrHelper>> m_seq_nr_per_card;
   OUTPUT_DATA_CALLBACK m_output_cb= nullptr;
   RxStats m_rx_stats{};
   TxStats m_tx_stats{};

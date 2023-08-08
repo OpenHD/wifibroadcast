@@ -31,7 +31,7 @@ WBTxRx::WBTxRx(std::vector<std::string> wifi_cards,Options options1)
   }
   m_card_is_disconnected.resize(m_wifi_cards.size());
   for(int i=0;i<m_wifi_cards.size();i++){
-    auto tmp=std::make_shared<seq_nr::Helper>();
+    auto tmp=std::make_shared<NonceSeqNrHelper>();
     m_seq_nr_per_card.push_back(tmp);
     m_card_is_disconnected[i]=false;
   }
