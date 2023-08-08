@@ -7,6 +7,9 @@
 
 #include "TimeHelper.hpp"
 
+/**
+ * Helper to accumulate RSSI values
+ */
 class RSSIAccumulator{
  public:
   void add_rssi(int8_t rssi){
@@ -38,12 +41,24 @@ class RSSIAccumulator{
     if(m_rssi_count<=0)return INT8_MIN;
     return m_rssi_max;
   }
+  MinMaxAvg<int8_t> get_min_max_avg(){
+    MinMaxAvg<int8_t> tmp{get_min(),get_max(),get_avg()};
+    return tmp;
+  }
   std::string get_min_max_avg_readable(bool avg_only= false){
     MinMaxAvg<int> tmp{get_min(),get_max(),get_avg()};
     return min_max_avg_as_string(tmp, avg_only);
   }
   int get_n_samples(){
     return m_rssi_count;
+  }
+  std::optional<MinMaxAvg<int8_t>> add_and_recalculate_if_needed(int8_t rssi){
+    add_rssi(rssi);
+    if(get_n_samples()>=10){
+      auto tmp=get_min_max_avg();
+      reset();
+      return tmp;
+    }
   }
   void reset(){
     m_rssi_sum=0;
@@ -98,7 +113,9 @@ class RSSIForWifiCard {
   int8_t rssi_min = 0;
   int8_t rssi_max = 0;
   int8_t last_rssi=INT8_MIN;
-  RSSIAccumulator m_rssi_acc{};
+ public:
+  RSSIAccumulator m_rssi_antenna1{};
+  RSSIAccumulator m_rssi_antenna2{};
 };
 static std::ostream& operator<<(std::ostream& strm, const RSSIForWifiCard& obj){
   std::stringstream ss;

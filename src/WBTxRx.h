@@ -197,8 +197,9 @@ class WBTxRx {
      int64_t count_p_valid=0;
      int32_t curr_packet_loss=-1;
      int signal_quality=-1;
-     int antenna1_dbm=-128;
-     int antenna2_dbm=-128;
+     // rssi is the average over the last 10 packets
+     int8_t antenna1_dbm=-128;
+     int8_t antenna2_dbm=-128;
    };
    TxStats get_tx_stats();
    RxStats get_rx_stats();
