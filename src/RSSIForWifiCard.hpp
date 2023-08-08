@@ -24,7 +24,7 @@ class RSSIForWifiCard {
     count_all += 1;
   }
   int8_t getAverage() const {
-    if (rssi_sum == 0)return 0;
+    if (rssi_sum == 0)return INT8_MIN;
     return rssi_sum / count_all;
   }
   void reset() {
