@@ -92,6 +92,24 @@ struct MinMaxAvg{
   T max;
   T avg;
 };
+template<typename T>
+static std::string min_max_avg_as_string(const MinMaxAvg<T>& minMaxAvg,bool average_only){
+  std::stringstream ss;
+  if(average_only){
+    if constexpr (std::is_same_v<T, std::chrono::nanoseconds>) {
+      ss<<"avg="<<MyTimeHelper::R(minMaxAvg.avg);
+    }else{
+      ss<<"avg="<<minMaxAvg.avg;
+    }
+  }else{
+    if constexpr (std::is_same_v<T, std::chrono::nanoseconds>) {
+      ss << "min=" << MyTimeHelper::R(minMaxAvg.min) << " max=" << MyTimeHelper::R(minMaxAvg.max) << " avg=" << MyTimeHelper::R(minMaxAvg.avg);
+    }else{
+      ss << "min=" << minMaxAvg.min << " max=" << minMaxAvg.max << " avg=" << minMaxAvg.avg;
+    }
+  }
+  return ss.str();
+}
 
 // Use this class to compare many samples of the same kind
 // Saves the minimum,maximum and average of all the samples
@@ -108,9 +126,9 @@ class BaseAvgCalculator {
   std::chrono::steady_clock::time_point m_last_reset=std::chrono::steady_clock::now();
  public:
   BaseAvgCalculator() { reset(); };
-  void add(const T &value) {
-    if (value < T(0)) {
-      std::cout << "Cannot add negative value\n";
+  void add(const T &value,bool validate_positive_input=true) {
+    if (value < T(0) && validate_positive_input) {
+      std::cout << "Cannot add negative value:"<<std::endl;
       return;
     }
     sum += value;
@@ -175,26 +193,8 @@ class BaseAvgCalculator {
       return {getMin(),getMax(),getAvg()};
   }
   std::string getAvgReadable(const bool averageOnly = false) const {
-    std::stringstream ss;
-    if constexpr (std::is_same_v<T, std::chrono::nanoseconds>) {
-      const auto curr=getMinMaxAvg();
-      // Class stores time samples
-      if (averageOnly) {
-        ss << "avg=" << MyTimeHelper::R(getAvg());
-        return ss.str();
-      }
-      ss << "min=" << MyTimeHelper::R(curr.min) << " max=" << MyTimeHelper::R(curr.max) << " avg="
-         << MyTimeHelper::R(curr.avg);
-    } else {
-      // Class stores other type of samples
-      const auto curr=getMinMaxAvg();
-      if (averageOnly) {
-        ss << "avg=" << curr.avg;
-        return ss.str();
-      }
-      ss << "min=" << curr.min << " max=" << curr.max << " avg=" << curr.avg;
-    }
-    return ss.str();
+      const auto min_max_avg=getMinMaxAvg();
+      return min_max_avg_as_string(min_max_avg,averageOnly);
   }
   float getAvg_ms() {
     return (float) (std::chrono::duration_cast<std::chrono::microseconds>(getAvg()).count()) / 1000.0f;
