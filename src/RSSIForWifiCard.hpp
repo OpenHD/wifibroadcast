@@ -59,6 +59,7 @@ class RSSIAccumulator{
       reset();
       return tmp;
     }
+    return std::nullopt;
   }
   void reset(){
     m_rssi_sum=0;

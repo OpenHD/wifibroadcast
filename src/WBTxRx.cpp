@@ -396,13 +396,20 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         auto opt_minmaxavg=this_wifi_card_stats.rssi_for_wifi_card.m_rssi_antenna1.add_and_recalculate_if_needed(rssi);
         if(opt_minmaxavg.has_value()){
           this_wifi_card_stats.antenna1_dbm=opt_minmaxavg.value().avg;
+          if(m_options.debug_rssi){
+            m_console->debug("Antenna1{}:{}",0, min_max_avg_as_string(opt_minmaxavg.value(), false));
+          }
         }
+
       }
       if(parsedPacket->allAntennaValues.size()>=3){
         const auto rssi=parsedPacket->allAntennaValues[2].rssi;
         auto opt_minmaxavg=this_wifi_card_stats.rssi_for_wifi_card.m_rssi_antenna2.add_and_recalculate_if_needed(rssi);
         if(opt_minmaxavg.has_value()){
           this_wifi_card_stats.antenna2_dbm=opt_minmaxavg.value().avg;
+          if(m_options.debug_rssi){
+            m_console->debug("Antenna2{}:{}",1, min_max_avg_as_string(opt_minmaxavg.value(), false));
+          }
         }
       }
       const auto best_rssi=wifibroadcast::pcap_helper::get_best_rssi_of_card(parsedPacket->allAntennaValues,m_options.rtl8812au_rssi_fixup);
