@@ -387,6 +387,13 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         m_console->debug("{}",all_rssi_to_string(parsedPacket->allAntennaValues));
       }
       const auto best_rssi=wifibroadcast::pcap_helper::get_best_rssi_of_card(parsedPacket->allAntennaValues,m_options.rtl8812au_rssi_fixup);
+      // assumes driver gives 1st and 2nd antenna as 2nd and 3rd value
+      if(parsedPacket->allAntennaValues.size()>=2){
+        this_wifi_card_stats.antenna1_dbm=(int)parsedPacket->allAntennaValues[1].rssi;
+      }
+      if(parsedPacket->allAntennaValues.size()>=3){
+        this_wifi_card_stats.antenna2_dbm=(int)parsedPacket->allAntennaValues[2].rssi;
+      }
       //m_console->debug("best_rssi:{}",(int)best_rssi);
       if(best_rssi.has_value()){
         rssi_for_this_card.addRSSI(best_rssi.value());

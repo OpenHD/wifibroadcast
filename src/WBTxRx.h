@@ -190,6 +190,8 @@ class WBTxRx {
      int64_t count_p_valid=0;
      int32_t curr_packet_loss=-1;
      int signal_quality=-1;
+     int antenna1_dbm=-128;
+     int antenna2_dbm=-128;
    };
    TxStats get_tx_stats();
    RxStats get_rx_stats();
