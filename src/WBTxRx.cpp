@@ -56,8 +56,11 @@ WBTxRx::WBTxRx(std::vector<std::string> wifi_cards,Options options1)
   // next session key in delta ms if packets are being fed
   m_session_key_next_announce_ts = std::chrono::steady_clock::now();
   // Per libsodium documentation, the first nonce should be chosen randomly
+  // This selects a random nonce in 32-bit range - we therefore have still 32-bit increasing indexes left, which means tx can run indefinitely
   m_nonce=randombytes_random();
-  m_seq_nr_helper.set_store_and_debug_gaps(m_options.debug_packet_gaps);
+  for(int i=0;i<m_wifi_cards.size();i++){
+    m_seq_nr_per_card[i]->set_store_and_debug_gaps(i,m_options.debug_packet_gaps);
+  }
 }
 
 WBTxRx::~WBTxRx() {
@@ -468,16 +471,25 @@ bool WBTxRx::process_received_data_packet(int wlan_idx,uint8_t stream_index,bool
       }
     }
     on_valid_packet(nonce,wlan_idx,stream_index,decrypted->data(),decrypted->size());
-    if(wlan_idx==0){
-      uint16_t tmp=nonce;
-      m_seq_nr_helper.on_new_sequence_number(tmp);
-      m_rx_stats.curr_packet_loss=m_seq_nr_helper.get_current_loss_percent();
-      //m_console->debug("packet loss:{}",m_seq_nr_helper.get_current_loss_percent());
-    }
     // Calculate sequence number stats per card
     auto& seq_nr_for_card=m_seq_nr_per_card.at(wlan_idx);
     seq_nr_for_card->on_new_sequence_number((uint16_t)nonce);
     m_rx_stats_per_card.at(wlan_idx).curr_packet_loss=seq_nr_for_card->get_current_loss_percent();
+    // Update the main loss to whichever card reports the lowest loss
+    int lowest_loss=INT32_MAX;
+    for(auto& card_loss: m_seq_nr_per_card){
+      const auto loss=card_loss->get_current_loss_percent();
+      if(loss<0){
+        continue ;
+      }
+      if(loss<lowest_loss){
+        lowest_loss=loss;
+      }
+    }
+    if(lowest_loss==INT32_MAX){
+      lowest_loss=-1;
+    }
+    m_rx_stats.curr_lowest_packet_loss=lowest_loss;
     return true;
   }
   //m_console->debug("Got non-wb packet {}",radio_port);
@@ -597,8 +609,7 @@ WBTxRx::TxStats WBTxRx::get_tx_stats() {
 
 WBTxRx::RxStats WBTxRx::get_rx_stats() {
   WBTxRx::RxStats ret=m_rx_stats;
-  ret.curr_packet_loss=m_seq_nr_helper.get_current_loss_percent();
-  ret.curr_big_gaps_counter=m_seq_nr_helper.get_current_gaps_counter();
+  ret.curr_big_gaps_counter=0;
   ret.curr_bits_per_second=m_rx_bitrate_calculator.get_last_or_recalculate(ret.count_bytes_valid);
   ret.curr_packets_per_second=m_rx_packets_per_second_calculator.get_last_or_recalculate(ret.count_p_valid);
   return ret;
@@ -612,7 +623,6 @@ void WBTxRx::rx_reset_stats() {
   m_rx_stats=RxStats{};
   m_rx_bitrate_calculator.reset();
   m_rx_packets_per_second_calculator.reset();
-  m_seq_nr_helper.reset();
   for(int i=0;i<m_wifi_cards.size();i++){
     RxStatsPerCard card_stats{};
     card_stats.card_index=i;
@@ -646,7 +656,7 @@ std::string WBTxRx::tx_stats_to_string(const WBTxRx::TxStats& data) {
 std::string WBTxRx::rx_stats_to_string(const WBTxRx::RxStats& data) {
   return fmt::format("RxStats[packets any:{} session:{} valid:{} Loss:{}% pps:{} bps:{} foreign:{}%]",
                          data.count_p_any,data.n_received_valid_session_key_packets,data.count_p_valid,
-                         data.curr_packet_loss,data.curr_packets_per_second,data.curr_bits_per_second,
+                         data.curr_lowest_packet_loss,data.curr_packets_per_second,data.curr_bits_per_second,
                      data.curr_link_pollution_perc);
 }
 std::string WBTxRx::rx_stats_per_card_to_string(

@@ -172,7 +172,8 @@ class WBTxRx {
      int64_t count_bytes_valid=0;
      // Those values are recalculated in X second intervals.
      // If no data arrives for a long time, they report -1 instead of 0
-     int32_t curr_packet_loss=-1;
+     // Current packet loss on whatever card reports the lowest packet loss (or card0 if there are not multiple RX cards)
+     int32_t curr_lowest_packet_loss=-1;
      int32_t curr_packets_per_second=-1;
      int32_t curr_bits_per_second=-1;
      // n received valid session key packets
@@ -274,8 +275,6 @@ class WBTxRx {
   std::unique_ptr<std::thread> m_receive_thread;
   std::vector<pollfd> m_receive_pollfds;
   std::chrono::steady_clock::time_point m_last_receiver_error_log=std::chrono::steady_clock::now();
-  // for calculating the packet loss on the rx side
-  NonceSeqNrHelper m_seq_nr_helper;
   seq_nr::Helper m_seq_nr_helper_iee80211;
   // for calculating the loss per rx card (when multiple rx cards are used)
   std::vector<std::shared_ptr<NonceSeqNrHelper>> m_seq_nr_per_card;

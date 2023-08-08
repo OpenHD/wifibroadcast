@@ -12,7 +12,7 @@
 #include "StringHelper.hpp"
 
 // Helper for dealing with sequence number
-// (calculate packet loss an more)
+// (calculate packet loss and more)
 // Using a unique uint64_t nonce
 class NonceSeqNrHelper{
  public:
@@ -22,6 +22,7 @@ class NonceSeqNrHelper{
   int16_t get_current_gaps_counter(){
     return m_curr_gaps_counter;
   }
+  // NOTE: Does no packet re-ordering, therefore can only be used per card !
   void on_new_sequence_number(uint64_t seq_nr){
     if(m_last_seq_nr==UINT64_MAX){
       m_last_seq_nr=seq_nr;
@@ -61,8 +62,9 @@ class NonceSeqNrHelper{
     m_curr_loss_perc=-1;
     m_curr_gaps_counter=-1;
   }
-  void set_store_and_debug_gaps(bool enable){
+  void set_store_and_debug_gaps(int card_idx,bool enable){
     m_store_and_debug_gaps=enable;
+    m_card_index=card_idx;
   }
  private:
   // recalculate the loss in percentage in fixed intervals
@@ -90,7 +92,7 @@ class NonceSeqNrHelper{
     m_gaps.push_back(gap_size);
     const auto elasped=std::chrono::steady_clock::now()-m_last_gap_log;
     if(elasped>std::chrono::seconds(1) || m_gaps.size()>=MAX_N_STORED_GAPS){
-      wifibroadcast::log::get_default()->debug("Gaps: {}",StringHelper::vectorAsString(m_gaps));
+      wifibroadcast::log::get_default()->debug("Card{} Gaps: {}",m_card_index,StringHelper::vectorAsString(m_gaps));
       m_gaps.resize(0);
       m_last_gap_log=std::chrono::steady_clock::now();
     }
@@ -120,6 +122,7 @@ class NonceSeqNrHelper{
   std::vector<int> m_gaps;
   static constexpr int GAP_SIZE_COUNTS_AS_BIG_GAP=10;
   bool m_store_and_debug_gaps= false;
+  int m_card_index=0;
 };
 
 #endif  // WIFIBROADCAST_NONCESEQNRHELPER_H
