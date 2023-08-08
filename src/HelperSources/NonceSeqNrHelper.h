@@ -53,6 +53,7 @@ class NonceSeqNrHelper{
       m_n_received_packets++;
     }
     recalculate_loss_if_needed();
+    m_last_seq_nr=seq_nr;
   }
   void reset(){
     m_last_seq_nr=UINT64_MAX;
