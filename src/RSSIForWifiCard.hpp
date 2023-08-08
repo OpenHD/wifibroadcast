@@ -82,11 +82,6 @@ class RSSIForWifiCard {
   RSSIForWifiCard() = default;
 
   void addRSSI(int8_t rssi) {
-    m_rssi_acc.add_rssi(rssi);
-    if(m_rssi_acc.get_n_samples()>=10){
-      wifibroadcast::log::get_default()->debug("{}",m_rssi_acc.get_min_max_avg_readable());
-      m_rssi_acc.reset();
-    }
     last_rssi=rssi;
     if (count_all == 0) {
       rssi_min = rssi;
