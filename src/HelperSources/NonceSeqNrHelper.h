@@ -29,6 +29,7 @@ class NonceSeqNrHelper{
     }
     if(m_last_seq_nr>=seq_nr){
       // Nonce must be strictly increasing, otherwise driver is bugged and reorders packets
+      // Or - more likely - a tx was restarted - which is so rare that it is okay to log a warning here and just accept the new value
       wifibroadcast::log::get_default()->warn("Invalid sequence number last:{} new:{}",m_last_seq_nr,seq_nr);
       m_last_seq_nr=seq_nr;
       return ;
