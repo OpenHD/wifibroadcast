@@ -70,7 +70,8 @@ class NonceSeqNrHelper{
   // recalculate the loss in percentage in fixed intervals
   // resets the received and missing packet count
   void recalculate_loss_if_needed(){
-    if(std::chrono::steady_clock::now()-m_last_loss_perc_recalculation>std::chrono::seconds(2)){
+    const auto elapsed=std::chrono::steady_clock::now()-m_last_loss_perc_recalculation;
+    if(elapsed>=std::chrono::seconds(2) || m_n_received_packets>500){
       m_last_loss_perc_recalculation=std::chrono::steady_clock::now();
       const auto n_total_packets=m_n_received_packets+m_n_missing_packets;
       //m_console->debug("x_n_missing_packets:{} x_n_received_packets:{} n_total_packets:{}",x_n_missing_packets,x_n_received_packets,n_total_packets);
