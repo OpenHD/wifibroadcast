@@ -48,8 +48,9 @@ class RSSIAccumulator{
     MinMaxAvg<int8_t> tmp{get_min(),get_max(),get_avg()};
     return tmp;
   }
-  std::string get_min_max_avg_readable(bool avg_only= false){
-    MinMaxAvg<int> tmp{get_min(),get_max(),get_avg()};
+  static std::string min_max_avg_to_string(const MinMaxAvg<int8_t>& data,bool avg_only= false){
+    // Need to convert to int such that it is shown correctly
+    MinMaxAvg<int> tmp{data.min,data.max,data.avg};
     return min_max_avg_as_string(tmp, avg_only);
   }
   int get_n_samples(){
