@@ -384,7 +384,7 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
       // We only use known "good" packets for those stats.
       auto &this_wifi_card_stats = m_rx_stats_per_card.at(wlan_idx);
       PerCardCalculators& this_wifi_card_calc= *m_per_card_calc.at(wlan_idx);
-      if(m_options.debug_rssi){
+      if(m_options.debug_rssi>=2){
         m_console->debug("{}",all_rssi_to_string(parsedPacket->allAntennaValues));
       }
       // assumes driver gives 1st and 2nd antenna as 2nd and 3rd value
@@ -393,7 +393,7 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         auto opt_minmaxavg= this_wifi_card_calc.card_rssi.add_and_recalculate_if_needed(rssi);
         if(opt_minmaxavg.has_value()){
           this_wifi_card_stats.antenna1_dbm=opt_minmaxavg.value().avg;
-          if(m_options.debug_rssi){
+          if(m_options.debug_rssi>=1){
             m_console->debug("Card{}:{}",wlan_idx, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
           }
         }
@@ -403,7 +403,7 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         auto opt_minmaxavg= this_wifi_card_calc.antenna1_rssi.add_and_recalculate_if_needed(rssi);
         if(opt_minmaxavg.has_value()){
           this_wifi_card_stats.antenna1_dbm=opt_minmaxavg.value().avg;
-          if(m_options.debug_rssi){
+          if(m_options.debug_rssi>=1){
             m_console->debug("Card{} Antenna{}:{}",wlan_idx,0, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
           }
         }
@@ -413,7 +413,7 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         auto opt_minmaxavg= this_wifi_card_calc.antenna2_rssi.add_and_recalculate_if_needed(rssi);
         if(opt_minmaxavg.has_value()){
           this_wifi_card_stats.antenna2_dbm=opt_minmaxavg.value().avg;
-          if(m_options.debug_rssi){
+          if(m_options.debug_rssi>=1){
             m_console->debug("Card{} Antenna{}:{}",wlan_idx,1, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
           }
         }
