@@ -425,8 +425,6 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
           }
         }
       }
-      const auto best_rssi=wifibroadcast::pcap_helper::get_best_rssi_of_card(parsedPacket->allAntennaValues,m_options.rtl8812au_rssi_fixup);
-      //m_console->debug("best_rssi:{}",(int)best_rssi);
       this_wifi_card_stats.count_p_valid++;
       if(parsedPacket->mcs_index.has_value()){
         m_rx_stats.last_received_packet_mcs_index=parsedPacket->mcs_index.value();
