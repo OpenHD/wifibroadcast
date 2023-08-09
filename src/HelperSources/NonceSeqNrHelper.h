@@ -38,6 +38,7 @@ class NonceSeqNrHelper{
     const auto diff=seq_nr-m_last_seq_nr;
     if(diff>10000){
       wifibroadcast::log::get_default()->warn("Unlikely high gap, diff {} last:{} new:{}",diff,m_last_seq_nr,seq_nr);
+      m_last_seq_nr=seq_nr;
       return ;
     }
     if(diff>1){
