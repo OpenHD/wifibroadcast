@@ -15,9 +15,10 @@
 #include "Encryption.hpp"
 #include "Ieee80211Header.hpp"
 #include "NonceSeqNrHelper.h"
-#include "RSSIForWifiCard.hpp"
+#include "RSSIAccumulator.hpp"
 #include "RadiotapHeader.hpp"
 #include "SeqNrHelper.hpp"
+#include "SignalQualityAccumulator.hpp"
 #include "TimeHelper.hpp"
 
 /**
@@ -197,7 +198,8 @@ class WBTxRx {
      int64_t count_p_any=0;
      int64_t count_p_valid=0;
      int32_t curr_packet_loss=-1;
-     int signal_quality=-1;
+     // [0,100] if valid, -1 otherwise
+     int8_t signal_quality=-1;
      // These values are updated in regular intervals as long as packets are coming in
      int8_t card_dbm=-128; // Depends on driver
      int8_t antenna1_dbm=-128;
@@ -285,11 +287,13 @@ class WBTxRx {
     RSSIAccumulator card_rssi{};
     RSSIAccumulator antenna1_rssi{};
     RSSIAccumulator antenna2_rssi{};
+    SignalQualityAccumulator signal_quality{};
     void reset_all(){
       seq_nr.reset();
       card_rssi.reset();
       antenna1_rssi.reset();
       antenna2_rssi.reset();
+      signal_quality.reset();
     }
   };
   std::vector<std::shared_ptr<PerCardCalculators>> m_per_card_calc;

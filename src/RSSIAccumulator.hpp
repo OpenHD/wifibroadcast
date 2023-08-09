@@ -2,8 +2,8 @@
 // Created by consti10 on 30.06.23.
 //
 
-#ifndef WIFIBROADCAST_RSSIFORWIFICARD_HPP
-#define WIFIBROADCAST_RSSIFORWIFICARD_HPP
+#ifndef WIFIBROADCAST_RSSIACCUMULATOR_HPP
+#define WIFIBROADCAST_RSSIACCUMULATOR_HPP
 
 #include <optional>
 
@@ -92,4 +92,4 @@ class RSSIAccumulator{
   int m_rssi_identifier=0;
 };
 
-#endif  // WIFIBROADCAST_RSSIFORWIFICARD_HPP
+#endif  // WIFIBROADCAST_RSSIACCUMULATOR_HPP
