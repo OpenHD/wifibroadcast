@@ -392,7 +392,7 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         const auto rssi=parsedPacket->allAntennaValues[0].rssi;
         auto opt_minmaxavg= this_wifi_card_calc.card_rssi.add_and_recalculate_if_needed(rssi);
         if(opt_minmaxavg.has_value()){
-          this_wifi_card_stats.antenna1_dbm=opt_minmaxavg.value().avg;
+          this_wifi_card_stats.card_dbm=opt_minmaxavg.value().avg;
           if(m_options.debug_rssi>=1){
             m_console->debug("Card{}:{}",wlan_idx, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
           }
