@@ -350,5 +350,9 @@ static std::ostream& operator<<(std::ostream& strm, const WBTxRx::RxStats& data)
   strm<<WBTxRx::rx_stats_to_string(data);
   return strm;
 }
+static std::ostream& operator<<(std::ostream& strm, const WBTxRx::RxStatsPerCard& data){
+  strm<<WBTxRx::rx_stats_per_card_to_string(data);
+  return strm;
+}
 
 #endif  // WIFIBROADCAST_WBTXRX_H

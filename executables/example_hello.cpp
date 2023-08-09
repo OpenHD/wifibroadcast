@@ -92,7 +92,7 @@ int main(int argc, char *const *argv) {
       auto rxStats=txrx->get_rx_stats();
       auto rx_stats_card0=txrx->get_rx_stats_for_card(0);
       std::cout<<txStats<<std::endl;
-      std::cout<<WBTxRx::rx_stats_per_card_to_string(rx_stats_card0)<<std::endl;
+      std::cout<<rx_stats_card0<<std::endl;
     }
   }
 }
