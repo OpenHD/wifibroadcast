@@ -494,7 +494,7 @@ bool WBTxRx::process_received_data_packet(int wlan_idx,uint8_t stream_index,bool
     on_valid_packet(nonce,wlan_idx,stream_index,decrypted->data(),decrypted->size());
     // Calculate sequence number stats per card
     auto& seq_nr_for_card=m_per_card_calc.at(wlan_idx)->seq_nr;
-    seq_nr_for_card.on_new_sequence_number((uint16_t)nonce);
+    seq_nr_for_card.on_new_sequence_number(nonce);
     m_rx_stats_per_card.at(wlan_idx).curr_packet_loss=seq_nr_for_card.get_current_loss_percent();
     // Update the main loss to whichever card reports the lowest loss
     int lowest_loss=INT32_MAX;
