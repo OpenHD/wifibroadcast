@@ -87,6 +87,8 @@ class WBTxRx {
     bool debug_decrypt_time= false;
     // Debug packet gaps
     bool debug_packet_gaps= false;
+    // This is only for debugging / testing, inject packets with a fixed MAC - won't be received as valid packets by another rx instance
+    bool enable_non_openhd_mode= false;
   };
   explicit WBTxRx(std::vector<std::string> wifi_cards,Options options1);
   WBTxRx(const WBTxRx &) = delete;

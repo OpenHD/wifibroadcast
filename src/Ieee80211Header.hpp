@@ -136,6 +136,15 @@ struct Ieee80211HeaderOpenHD{
   std::string debug_control_field()const{
     return fmt::format("{}:{}",StringHelper::byte_as_hex(control_field_part1),StringHelper::byte_as_hex(control_field_part2));
   }
+  // Only for testing !
+  void dirty_write_dummy_fixed_src_dest_mac(){
+    uint8_t* src_mac=&mac_src_unique_id_part;
+    uint8_t* dst_mac=&mac_dst_unique_id_part;
+    static constexpr std::array<uint8_t, 6> dummy_mac1={0x00, 0x00, 0x01, 0x01, 0x02, 0x02};
+    static constexpr std::array<uint8_t, 6> dummy_mac2={0x02, 0x02, 0x01, 0x01, 0x00, 0x00};
+    memcpy(src_mac,dummy_mac1.data(),6);
+    memcpy(dst_mac,dummy_mac2.data(),6);
+  }
   // Dirty
   void write_ieee80211_seq_nr(const uint16_t seq_nr){
     uint8_t seq_nr_buf[2];
