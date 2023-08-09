@@ -201,6 +201,7 @@ class WBTxRx {
      // [0,100] if valid, -1 otherwise
      int8_t signal_quality=-1;
      // These values are updated in regular intervals as long as packets are coming in
+     // -128 = invalid, [-127..-1] otherwise
      int8_t card_dbm=-128; // Depends on driver
      int8_t antenna1_dbm=-128;
      int8_t antenna2_dbm=-128;
