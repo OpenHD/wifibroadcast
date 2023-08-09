@@ -19,7 +19,7 @@ class RSSIAccumulator{
     if(rssi<=INT8_MIN || rssi>=0){
       // RSSI should always be negative and in range [-127,-1]
       if(m_debug_invalid_rssi){
-        wifibroadcast::log::get_default()->debug("Invalid rssi {}",rssi);
+        wifibroadcast::log::get_default()->debug("Invalid rssi on id {}, {}",m_rssi_identifier,rssi);
       }
       return ;
     }
@@ -76,8 +76,9 @@ class RSSIAccumulator{
     m_rssi_min=INT8_MAX;
     m_rssi_max=INT8_MIN;
   }
-  void set_debug_invalid_rssi(bool enable){
+  void set_debug_invalid_rssi(bool enable,int rssi_identifier){
     m_debug_invalid_rssi=enable;
+    m_rssi_identifier=rssi_identifier;
   }
  private:
   int m_rssi_sum=0;
@@ -86,6 +87,7 @@ class RSSIAccumulator{
   int8_t m_rssi_max=INT8_MIN;
   std::chrono::steady_clock::time_point m_last_recalculation=std::chrono::steady_clock::now();
   bool m_debug_invalid_rssi= false;
+  int m_rssi_identifier=0;
 };
 
 #endif  // WIFIBROADCAST_RSSIFORWIFICARD_HPP
