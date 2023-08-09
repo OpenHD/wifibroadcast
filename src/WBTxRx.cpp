@@ -404,7 +404,7 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         if(opt_minmaxavg.has_value()){
           this_wifi_card_stats.antenna1_dbm=opt_minmaxavg.value().avg;
           if(m_options.debug_rssi){
-            m_console->debug("Card{} Antenna1{}:{}",wlan_idx,0, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
+            m_console->debug("Card{} Antenna{}:{}",wlan_idx,0, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
           }
         }
       }
@@ -414,7 +414,7 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         if(opt_minmaxavg.has_value()){
           this_wifi_card_stats.antenna2_dbm=opt_minmaxavg.value().avg;
           if(m_options.debug_rssi){
-            m_console->debug("Card{} Antenna2{}:{}",wlan_idx,1, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
+            m_console->debug("Card{} Antenna{}:{}",wlan_idx,1, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
           }
         }
       }

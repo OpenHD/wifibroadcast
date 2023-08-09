@@ -63,6 +63,7 @@ class RSSIAccumulator{
     if(get_n_samples()>=20 || (get_n_samples()>=1 && elapsed>=std::chrono::milliseconds(500))){
       auto tmp=get_min_max_avg();
       reset();
+      m_last_recalculation=std::chrono::steady_clock::now();
       return tmp;
     }
     return std::nullopt;
