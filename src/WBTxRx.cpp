@@ -388,7 +388,16 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         m_console->debug("{}",all_rssi_to_string(parsedPacket->allAntennaValues));
       }
       // assumes driver gives 1st and 2nd antenna as 2nd and 3rd value
-      // 1st value is ignored
+      if(parsedPacket->allAntennaValues.size()>=1){
+        const auto rssi=parsedPacket->allAntennaValues[0].rssi;
+        auto opt_minmaxavg= this_wifi_card_calc.card_rssi.add_and_recalculate_if_needed(rssi);
+        if(opt_minmaxavg.has_value()){
+          this_wifi_card_stats.antenna1_dbm=opt_minmaxavg.value().avg;
+          if(m_options.debug_rssi){
+            m_console->debug("Card{}:{}",wlan_idx, min_max_avg_as_string(opt_minmaxavg.value(), false));
+          }
+        }
+      }
       if(parsedPacket->allAntennaValues.size()>=2){
         const auto rssi=parsedPacket->allAntennaValues[1].rssi;
         auto opt_minmaxavg= this_wifi_card_calc.antenna1_rssi.add_and_recalculate_if_needed(rssi);
