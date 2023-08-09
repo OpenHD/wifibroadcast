@@ -5,7 +5,10 @@
 #ifndef WIFIBROADCAST_RSSIFORWIFICARD_HPP
 #define WIFIBROADCAST_RSSIFORWIFICARD_HPP
 
+#include <optional>
+
 #include "TimeHelper.hpp"
+#include "wifibroadcast-spdlog.h"
 
 /**
  * Helper to accumulate RSSI values
@@ -54,7 +57,9 @@ class RSSIAccumulator{
   }
   std::optional<MinMaxAvg<int8_t>> add_and_recalculate_if_needed(int8_t rssi){
     add_rssi(rssi);
-    if(get_n_samples()>=10){
+    // Calculate every 20 packets or 500ms and at least one packet, whatever is reached first
+    const auto elapsed=std::chrono::steady_clock::now()-m_last_recalculation;
+    if(get_n_samples()>=20 || (get_n_samples()>=1 && elapsed>=std::chrono::milliseconds(500))){
       auto tmp=get_min_max_avg();
       reset();
       return tmp;
@@ -72,6 +77,7 @@ class RSSIAccumulator{
   int m_rssi_count=0;
   int8_t m_rssi_min=INT8_MAX;
   int8_t m_rssi_max=INT8_MIN;
+  std::chrono::steady_clock::time_point m_last_recalculation=std::chrono::steady_clock::now();
 };
 
 

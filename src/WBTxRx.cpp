@@ -31,8 +31,9 @@ WBTxRx::WBTxRx(std::vector<std::string> wifi_cards,Options options1)
   }
   m_card_is_disconnected.resize(m_wifi_cards.size());
   for(int i=0;i<m_wifi_cards.size();i++){
-    auto tmp=std::make_shared<NonceSeqNrHelper>();
-    m_seq_nr_per_card.push_back(tmp);
+    auto tmp=std::make_shared<PerCardCalculators>();
+    tmp->seq_nr.set_store_and_debug_gaps(i,m_options.debug_packet_gaps);
+    m_per_card_calc.push_back(tmp);
     m_card_is_disconnected[i]=false;
   }
   for(int i=0;i<m_wifi_cards.size();i++){
@@ -58,9 +59,6 @@ WBTxRx::WBTxRx(std::vector<std::string> wifi_cards,Options options1)
   // Per libsodium documentation, the first nonce should be chosen randomly
   // This selects a random nonce in 32-bit range - we therefore have still 32-bit increasing indexes left, which means tx can run indefinitely
   m_nonce=randombytes_random();
-  for(int i=0;i<m_wifi_cards.size();i++){
-    m_seq_nr_per_card[i]->set_store_and_debug_gaps(i,m_options.debug_packet_gaps);
-  }
 }
 
 WBTxRx::~WBTxRx() {
@@ -385,7 +383,7 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
       m_rx_stats.count_bytes_valid+=pkt_payload_size;
       // We only use known "good" packets for those stats.
       auto &this_wifi_card_stats = m_rx_stats_per_card.at(wlan_idx);
-      auto& rssi_for_this_card=this_wifi_card_stats.rssi_for_wifi_card;
+      PerCardCalculators& this_wifi_card_calc= *m_per_card_calc.at(wlan_idx);
       if(m_options.debug_rssi){
         m_console->debug("{}",all_rssi_to_string(parsedPacket->allAntennaValues));
       }
@@ -393,30 +391,26 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
       // 1st value is ignored
       if(parsedPacket->allAntennaValues.size()>=2){
         const auto rssi=parsedPacket->allAntennaValues[1].rssi;
-        auto opt_minmaxavg=this_wifi_card_stats.rssi_for_wifi_card.m_rssi_antenna1.add_and_recalculate_if_needed(rssi);
+        auto opt_minmaxavg= this_wifi_card_calc.antenna1_rssi.add_and_recalculate_if_needed(rssi);
         if(opt_minmaxavg.has_value()){
           this_wifi_card_stats.antenna1_dbm=opt_minmaxavg.value().avg;
           if(m_options.debug_rssi){
-            m_console->debug("Antenna1{}:{}",0, min_max_avg_as_string(opt_minmaxavg.value(), false));
+            m_console->debug("Card{} Antenna1{}:{}",wlan_idx,0, min_max_avg_as_string(opt_minmaxavg.value(), false));
           }
         }
-
       }
       if(parsedPacket->allAntennaValues.size()>=3){
         const auto rssi=parsedPacket->allAntennaValues[2].rssi;
-        auto opt_minmaxavg=this_wifi_card_stats.rssi_for_wifi_card.m_rssi_antenna2.add_and_recalculate_if_needed(rssi);
+        auto opt_minmaxavg= this_wifi_card_calc.antenna2_rssi.add_and_recalculate_if_needed(rssi);
         if(opt_minmaxavg.has_value()){
           this_wifi_card_stats.antenna2_dbm=opt_minmaxavg.value().avg;
           if(m_options.debug_rssi){
-            m_console->debug("Antenna2{}:{}",1, min_max_avg_as_string(opt_minmaxavg.value(), false));
+            m_console->debug("Card{} Antenna2{}:{}",wlan_idx,1, min_max_avg_as_string(opt_minmaxavg.value(), false));
           }
         }
       }
       const auto best_rssi=wifibroadcast::pcap_helper::get_best_rssi_of_card(parsedPacket->allAntennaValues,m_options.rtl8812au_rssi_fixup);
       //m_console->debug("best_rssi:{}",(int)best_rssi);
-      if(best_rssi.has_value()){
-        rssi_for_this_card.addRSSI(best_rssi.value());
-      }
       this_wifi_card_stats.count_p_valid++;
       if(parsedPacket->mcs_index.has_value()){
         m_rx_stats.last_received_packet_mcs_index=parsedPacket->mcs_index.value();
@@ -444,11 +438,10 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         if(elapsed>=HIGHEST_RSSI_ADJUSTMENT_INTERVAL){
           m_last_highest_rssi_adjustment_tp=std::chrono::steady_clock::now();
           int idx_card_highest_rssi=0;
-          int highest_dbm=-1000;
-          for(int i=0;i< m_rx_stats_per_card.size();i++){
-            const int dbm_average=
-                m_rx_stats_per_card.at(i).rssi_for_wifi_card.getAverage();
-            m_rx_stats_per_card.at(i).rssi_for_wifi_card.reset();
+          int highest_dbm=INT32_MIN;
+          for(int i=0;i< m_wifi_cards.size();i++){
+            RxStatsPerCard& this_card_stats=m_rx_stats_per_card.at(i);
+            const auto dbm_average=this_card_stats.antenna1_dbm;
             if(dbm_average>highest_dbm){
               idx_card_highest_rssi=i;
               highest_dbm=dbm_average;
@@ -488,13 +481,14 @@ bool WBTxRx::process_received_data_packet(int wlan_idx,uint8_t stream_index,bool
     }
     on_valid_packet(nonce,wlan_idx,stream_index,decrypted->data(),decrypted->size());
     // Calculate sequence number stats per card
-    auto& seq_nr_for_card=m_seq_nr_per_card.at(wlan_idx);
-    seq_nr_for_card->on_new_sequence_number((uint16_t)nonce);
-    m_rx_stats_per_card.at(wlan_idx).curr_packet_loss=seq_nr_for_card->get_current_loss_percent();
+    auto& seq_nr_for_card=m_per_card_calc.at(wlan_idx)->seq_nr;
+    seq_nr_for_card.on_new_sequence_number((uint16_t)nonce);
+    m_rx_stats_per_card.at(wlan_idx).curr_packet_loss=seq_nr_for_card.get_current_loss_percent();
     // Update the main loss to whichever card reports the lowest loss
     int lowest_loss=INT32_MAX;
-    for(auto& card_loss: m_seq_nr_per_card){
-      const auto loss=card_loss->get_current_loss_percent();
+    for(auto& per_card_calc: m_per_card_calc){
+      auto& card_loss=per_card_calc->seq_nr;
+      const auto loss=card_loss.get_current_loss_percent();
       if(loss<0){
         continue ;
       }
@@ -643,7 +637,7 @@ void WBTxRx::rx_reset_stats() {
     RxStatsPerCard card_stats{};
     card_stats.card_index=i;
     m_rx_stats_per_card[i]=card_stats;
-    m_seq_nr_per_card[i]->reset();
+    m_per_card_calc.at(i)->reset_all();
   }
 }
 
@@ -677,9 +671,9 @@ std::string WBTxRx::rx_stats_to_string(const WBTxRx::RxStats& data) {
 }
 std::string WBTxRx::rx_stats_per_card_to_string(
     const WBTxRx::RxStatsPerCard& data) {
-  return fmt::format("Card{}[packets total:{} valid:{}, loss:{}% RSSI:{}]",data.card_index,
+  return fmt::format("Card{}[packets total:{} valid:{}, loss:{}% RSSI:{}/{},{}]",data.card_index,
                      data.count_p_any,data.count_p_valid,data.curr_packet_loss,
-                     (int)data.rssi_for_wifi_card.last_rssi);
+                     (int)data.card_dbm,data.antenna1_dbm,data.antenna2_dbm);
 }
 
 void WBTxRx::tx_reset_stats() {

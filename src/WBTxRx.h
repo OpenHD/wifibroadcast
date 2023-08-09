@@ -192,12 +192,12 @@ class WBTxRx {
    };
    struct RxStatsPerCard{
      int card_index=0; // 0 for first card, 1 for second, ...
-     RSSIForWifiCard rssi_for_wifi_card{};
      int64_t count_p_any=0;
      int64_t count_p_valid=0;
      int32_t curr_packet_loss=-1;
      int signal_quality=-1;
-     // rssi is the average over the last 10 packets
+     // These values are updated in regular intervals as long as packets are coming in
+     int8_t card_dbm=-128; // Depends on driver
      int8_t antenna1_dbm=-128;
      int8_t antenna2_dbm=-128;
    };
@@ -277,8 +277,20 @@ class WBTxRx {
   std::vector<pollfd> m_receive_pollfds;
   std::chrono::steady_clock::time_point m_last_receiver_error_log=std::chrono::steady_clock::now();
   seq_nr::Helper m_seq_nr_helper_iee80211;
-  // for calculating the loss per rx card (when multiple rx cards are used)
-  std::vector<std::shared_ptr<NonceSeqNrHelper>> m_seq_nr_per_card;
+  // for calculating the loss and more per rx card (when multiple rx cards are used)
+  struct PerCardCalculators{
+    NonceSeqNrHelper seq_nr{};
+    RSSIAccumulator card_rssi{};
+    RSSIAccumulator antenna1_rssi{};
+    RSSIAccumulator antenna2_rssi{};
+    void reset_all(){
+      seq_nr.reset();
+      card_rssi.reset();
+      antenna1_rssi.reset();
+      antenna2_rssi.reset();
+    }
+  };
+  std::vector<std::shared_ptr<PerCardCalculators>> m_per_card_calc;
   OUTPUT_DATA_CALLBACK m_output_cb= nullptr;
   RxStats m_rx_stats{};
   TxStats m_tx_stats{};
