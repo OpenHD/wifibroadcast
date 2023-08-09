@@ -9,14 +9,14 @@
 #include "pcap_helper.hpp"
 #include "SchedulingHelper.hpp"
 
-WBTxRx::WBTxRx(std::vector<std::string> wifi_cards,Options options1)
+WBTxRx::WBTxRx(std::vector<WifiCard> wifi_cards1,Options options1)
     : m_options(options1),
-      m_wifi_cards(std::move(wifi_cards)),
+      m_wifi_cards(std::move(wifi_cards1)),
       m_tx_radiotap_header(RadiotapHeader::UserSelectableParams{})
 {
   assert(!m_wifi_cards.empty());
   m_console=wifibroadcast::log::create_or_get("WBTxRx");
-  m_console->debug("{}", options_to_string(m_wifi_cards,m_options));
+  m_console->debug("{}", options_to_string(get_wifi_card_names(),m_options));
   // Common error - not run as root
   if(!SchedulingHelper::check_root()){
     std::cerr<<"wifibroadcast needs root"<<std::endl;
@@ -42,9 +42,9 @@ WBTxRx::WBTxRx(std::vector<std::string> wifi_cards,Options options1)
   for(int i=0;i<m_wifi_cards.size();i++){
     auto wifi_card=m_wifi_cards[i];
     PcapTxRx pcapTxRx{};
-    pcapTxRx.rx=wifibroadcast::pcap_helper::open_pcap_rx(wifi_card);
+    pcapTxRx.rx=wifibroadcast::pcap_helper::open_pcap_rx(wifi_card.name);
     //pcapTxRx.tx=pcapTxRx.rx;
-    pcapTxRx.tx=wifibroadcast::pcap_helper::open_pcap_tx(wifi_card);
+    pcapTxRx.tx=wifibroadcast::pcap_helper::open_pcap_tx(wifi_card.name);
     if(m_options.set_direction){
       const auto ret=pcap_setdirection(pcapTxRx.rx, PCAP_D_IN);
       m_console->debug("pcap_setdirection() returned {}",ret);
@@ -207,7 +207,7 @@ void WBTxRx::loop_receive_packets() {
           // limit logging here
           const auto elapsed=std::chrono::steady_clock::now()-m_last_receiver_error_log;
           if(elapsed>std::chrono::seconds(1)){
-            m_console->warn("{} receiver errors on pcap fd {} (wlan {})",m_n_receiver_errors,i,m_wifi_cards[i]);
+            m_console->warn("{} receiver errors on pcap fd {} (wlan {})",m_n_receiver_errors,i,m_wifi_cards[i].name);
             m_last_receiver_error_log=std::chrono::steady_clock::now();
           }
         }else{
@@ -424,6 +424,10 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
             m_console->debug("Card{} Antenna{}:{}",wlan_idx,1, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
           }
         }
+      }
+      if(m_wifi_cards[wlan_idx].type==WIFI_CARD_TYPE_RTL8812AU){
+        // RTL8812AU BUG - general value cannot be used, use max of antennas instead
+        this_wifi_card_stats.card_dbm=std::max(this_wifi_card_stats.antenna1_dbm,this_wifi_card_stats.antenna2_dbm);
       }
       this_wifi_card_stats.count_p_valid++;
       if(parsedPacket->mcs_index.has_value()){

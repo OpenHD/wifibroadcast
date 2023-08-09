@@ -29,7 +29,9 @@ int main(int argc, char *const *argv) {
     }
   }
 
-  std::vector<std::string> cards{card};
+  std::vector<WBTxRx::WifiCard> cards;
+  WBTxRx::WifiCard tmp_card{card,1};
+  cards.push_back(tmp_card);
   WBTxRx::Options options_txrx{};
   options_txrx.rtl8812au_rssi_fixup= true;
   //options_txrx.set_direction= false;

@@ -91,7 +91,14 @@ class WBTxRx {
     // This is only for debugging / testing, inject packets with a fixed MAC - won't be received as valid packets by another rx instance
     bool enable_non_openhd_mode= false;
   };
-  explicit WBTxRx(std::vector<std::string> wifi_cards,Options options1);
+  // RTL8812AU driver requires a quirk regarding rssi
+  static constexpr auto WIFI_CARD_TYPE_UNKNOWN=0;
+  static constexpr auto WIFI_CARD_TYPE_RTL8812AU=1;
+  struct WifiCard{
+    std::string name;
+    int type;
+  };
+  explicit WBTxRx(std::vector<WifiCard> wifi_cards,Options options1);
   WBTxRx(const WBTxRx &) = delete;
   WBTxRx &operator=(const WBTxRx &) = delete;
   ~WBTxRx();
@@ -242,7 +249,14 @@ class WBTxRx {
  private:
   const Options m_options;
   std::shared_ptr<spdlog::logger> m_console;
-  std::vector<std::string> m_wifi_cards;
+  const std::vector<WifiCard> m_wifi_cards;
+  std::vector<std::string> get_wifi_card_names(){
+     std::vector<std::string> ret;
+     for(const auto& card:m_wifi_cards){
+       ret.push_back(card.name);
+     }
+     return ret;
+  }
   std::chrono::steady_clock::time_point m_session_key_next_announce_ts{};
   RadiotapHeader::UserSelectableParams m_radioTapHeaderParams{};
   RadiotapHeader m_tx_radiotap_header;
