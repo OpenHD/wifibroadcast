@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 include(WBLib.cmake)
 
-add_executable(wfb_keygen executables/wfb_keygen.c)
+add_executable(wfb_keygen executables/wfb_keygen.cpp)
 target_link_libraries(wfb_keygen  ${WB_TARGET_LINK_LIBRARIES})
 
 add_executable(benchmark executables/benchmark.cpp)

@@ -29,6 +29,9 @@ target_sources(wifibroadcast PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/src/WBStreamRx.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/WBStreamTx.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/WBTxRx.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/Ieee80211Header.hpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/RadiotapHeader.hpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/RSSIForWifiCard.hpp
         )
 target_include_directories(wifibroadcast PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/src/HelperSources

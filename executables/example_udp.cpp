@@ -121,9 +121,11 @@ int main(int argc, char *const *argv) {
       const auto elapsed_since_last_log=std::chrono::steady_clock::now()-lastLog;
       if(elapsed_since_last_log>std::chrono::seconds(1)){
         lastLog=std::chrono::steady_clock::now();
+        auto txStats=txrx->get_tx_stats();
         auto rxStats=txrx->get_rx_stats();
-        auto rssi=txrx->get_rx_stats_for_card(0);
-        std::cout<<rxStats<<" RSSI:"<<(int)rssi.rssi_for_wifi_card.last_rssi<<std::endl;
+        auto rx_stats_card0=txrx->get_rx_stats_for_card(0);
+        std::cout<<txStats<<std::endl;
+        std::cout<<rx_stats_card0<<std::endl;
       }
     }
   }

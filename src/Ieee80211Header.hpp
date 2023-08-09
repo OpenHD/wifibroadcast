@@ -227,6 +227,11 @@ static void test_nonce(){
     tmp.write_nonce(nonce);
     assert(tmp.get_nonce()==nonce);
   }
+  const auto nonce_high=UINT64_MAX-100;
+  for(uint64_t nonce=nonce_high;nonce<nonce_high+20;nonce++){
+    tmp.write_nonce(nonce);
+    assert(tmp.get_nonce()==nonce);
+  }
 }
 static void test_sequence_number(){
 

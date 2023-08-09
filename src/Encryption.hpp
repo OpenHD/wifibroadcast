@@ -242,4 +242,46 @@ class Decryptor {
   }
 };
 
+namespace wbencryption{
+
+struct KeypairData{
+  unsigned char drone_publickey[crypto_box_PUBLICKEYBYTES];
+  unsigned char drone_secretkey[crypto_box_SECRETKEYBYTES];
+  unsigned char gs_publickey[crypto_box_PUBLICKEYBYTES];
+  unsigned char gs_secretkey[crypto_box_SECRETKEYBYTES];
+};
+
+static KeypairData generate_keypair(){
+  KeypairData ret{};
+  crypto_box_keypair(ret.drone_publickey, ret.drone_secretkey);
+  crypto_box_keypair(ret.gs_publickey, ret.gs_secretkey);
+  return ret;
+}
+
+static int write_to_file(const KeypairData& data){
+  FILE *fp;
+  if ((fp = fopen("drone.key", "w")) == NULL) {
+    perror("Unable to save drone.key");
+    return 1;
+  }
+  fwrite(data.drone_secretkey, crypto_box_SECRETKEYBYTES, 1, fp);
+  fwrite(data.gs_publickey, crypto_box_PUBLICKEYBYTES, 1, fp);
+  fclose(fp);
+
+  fprintf(stderr, "Drone keypair (drone sec + gs pub) saved to drone.key\n");
+
+  if ((fp = fopen("gs.key", "w")) == NULL) {
+    perror("Unable to save gs.key");
+    return 1;
+  }
+
+  fwrite(data.gs_secretkey, crypto_box_SECRETKEYBYTES, 1, fp);
+  fwrite(data.drone_publickey, crypto_box_PUBLICKEYBYTES, 1, fp);
+  fclose(fp);
+  fprintf(stderr, "GS keypair (gs sec + drone pub) saved to gs.key\n");
+  return 0;
+}
+
+}
+
 #endif //ENCRYPTION_HPP
