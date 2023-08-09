@@ -18,6 +18,8 @@ class RSSIAccumulator{
   void add_rssi(int8_t rssi){
     if(rssi<=INT8_MIN || rssi>=0){
       // RSSI should always be negative and in range [-127,-1]
+      // It seems to be quite common for drivers to report invalid rssi values from time to time - in this case,
+      // just ignore the value
       if(m_debug_invalid_rssi){
         wifibroadcast::log::get_default()->debug("Invalid rssi on id {}, {}",m_rssi_identifier,rssi);
       }
