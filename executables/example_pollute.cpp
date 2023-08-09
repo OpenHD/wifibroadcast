@@ -51,7 +51,7 @@ int main(int argc, char *const *argv) {
   std::shared_ptr<WBTxRx> txrx=std::make_shared<WBTxRx>(cards,options_txrx);
   // We do not need receive in this mode
   //txrx->start_receiving();
-  wifibroadcast::log::get_default()->debug("Example pollute {} {}ms",StringHelper::string_vec_as_string(cards),sleep_time_ms);
+  wifibroadcast::log::get_default()->debug("Example pollute {}ms",sleep_time_ms);
 
   auto lastLog=std::chrono::steady_clock::now();
   int packet_index=0;
