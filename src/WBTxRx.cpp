@@ -455,29 +455,33 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         //m_seq_nr_helper_iee80211.on_new_sequence_number(iee_seq_nr);
         //m_console->debug("IEE SEQ NR PACKET LOSS {}",m_seq_nr_helper_iee80211.get_current_loss_percent());
       }
-      // Adjustment of which card is used for injecting packets in case there are multiple RX card(s)
-      if(m_wifi_cards.size()>1 && m_options.enable_auto_switch_tx_card){
-        const auto elapsed=std::chrono::steady_clock::now()-m_last_highest_rssi_adjustment_tp;
-        if(elapsed>=HIGHEST_RSSI_ADJUSTMENT_INTERVAL){
-          m_last_highest_rssi_adjustment_tp=std::chrono::steady_clock::now();
-          int idx_card_highest_rssi=0;
-          int highest_dbm=INT32_MIN;
-          for(int i=0;i< m_wifi_cards.size();i++){
-            RxStatsPerCard& this_card_stats=m_rx_stats_per_card.at(i);
-            const auto dbm_average=this_card_stats.antenna1_dbm;
-            if(dbm_average>highest_dbm){
-              idx_card_highest_rssi=i;
-              highest_dbm=dbm_average;
-            }
-            //m_console->debug("Card {} dbm_average:{}",i,dbm_average);
-          }
-          if(m_curr_tx_card!=idx_card_highest_rssi){
-            // TODO
-            // to avoid switching too often, only switch if the difference in dBm exceeds a threshold value
-            m_console->debug("Switching to card {}",idx_card_highest_rssi);
-            m_curr_tx_card=idx_card_highest_rssi;
-          }
+      switch_tx_card_if_needed();
+    }
+  }
+}
+
+void WBTxRx::switch_tx_card_if_needed() {
+  // Adjustment of which card is used for injecting packets in case there are multiple RX card(s)
+  if(m_wifi_cards.size()>1 && m_options.enable_auto_switch_tx_card){
+    const auto elapsed=std::chrono::steady_clock::now()-m_last_highest_rssi_adjustment_tp;
+    if(elapsed>=HIGHEST_RSSI_ADJUSTMENT_INTERVAL){
+      m_last_highest_rssi_adjustment_tp=std::chrono::steady_clock::now();
+      int idx_card_highest_rssi=0;
+      int highest_dbm=INT32_MIN;
+      for(int i=0;i< m_wifi_cards.size();i++){
+        RxStatsPerCard& this_card_stats=m_rx_stats_per_card.at(i);
+        const auto dbm_average=this_card_stats.card_dbm;
+        if(dbm_average>highest_dbm){
+          idx_card_highest_rssi=i;
+          highest_dbm=(int)dbm_average;
         }
+        //m_console->debug("Card {} dbm_average:{}",i,dbm_average);
+      }
+      if(m_curr_tx_card!=idx_card_highest_rssi){
+        // TODO
+        // to avoid switching too often, only switch if the difference in dBm exceeds a threshold value
+        m_console->debug("Switching to card {}",idx_card_highest_rssi);
+        m_curr_tx_card=idx_card_highest_rssi;
       }
     }
   }
@@ -730,4 +734,3 @@ std::string WBTxRx::options_to_string(const std::vector<std::string>& wifi_cards
   return fmt::format("Id:{} Cards:{} Keypair:{} ",options.use_gnd_identifier ? "Ground":"Air",StringHelper::string_vec_as_string(wifi_cards),
                      options.encryption_key.value_or("DEFAULT_SEED"));
 }
-
