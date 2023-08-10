@@ -81,7 +81,7 @@ class WBTxRx {
     // You need to set this to air / gnd on the air / gnd unit since AR9271 has a bug where it reports injected packets as received packets
     bool use_gnd_identifier= false;
     // RSSI can be tricky
-    int debug_rssi= 0; // 0 - do not debug, 1=print min,max,avg 2=print every packet
+    int debug_rssi= 0; // 0 - do not debug, 1=print min,max,avg and log invalid 2=print every packet
     // Debug encrypt / calculate checksum time
     bool debug_encrypt_time= false;
     // Debug decrypt / validate checksum time
