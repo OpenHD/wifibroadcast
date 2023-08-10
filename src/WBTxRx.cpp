@@ -677,7 +677,7 @@ bool WBTxRx::get_card_has_disconnected(int card_idx) {
   return m_card_is_disconnected[card_idx];
 }
 std::string WBTxRx::tx_stats_to_string(const WBTxRx::TxStats& data) {
-  return fmt::format("TxStats[injected packets:{} bytes:{} tx errors:{}-{} pps:{} bps:{}-{}]",
+  return fmt::format("TxStats[injected packets:{} bytes:{} tx errors:{}:{} pps:{} bps:{}:{}]",
                      data.n_injected_packets,data.n_injected_bytes_including_overhead,
                      data.count_tx_injections_error_hint,data.count_tx_errors,
                      data.curr_packets_per_second,
