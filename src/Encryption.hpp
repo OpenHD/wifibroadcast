@@ -55,23 +55,31 @@ static Keypair generate_keypair_deterministic(bool is_air){
   return ret;
 }
 
-/**
- * Generates a deterministic keypair from the openhd bind_phrase. Deterministic,
- * same bind phrase will always generate the same key-pairs (but reversing is hard)
- */
+// See https://libsodium.gitbook.io/doc/password_hashing
+static  std::array<uint8_t , crypto_box_SEEDBYTES> create_seed_from_password(const std::string& pw,bool use_salt_air){
+  std::array<uint8_t,crypto_pwhash_SALTBYTES> salt_air{0};
+  std::array<uint8_t,crypto_pwhash_SALTBYTES> salt_gnd{1};
+  const auto salt = use_salt_air ? salt_air : salt_gnd;
+  std::array<uint8_t , crypto_box_SEEDBYTES> key{};
+  if (crypto_pwhash(key.data(), sizeof key, pw.c_str(), pw.length(), salt.data(),
+       crypto_pwhash_OPSLIMIT_INTERACTIVE, crypto_pwhash_MEMLIMIT_INTERACTIVE,
+       crypto_pwhash_ALG_DEFAULT) != 0) {
+    std::cerr<<"ERROR: cannot create_seed_from_password"<<std::endl;
+    assert(false);
+    // out of memory
+  }
+  return key;
+}
+
 static KeypairData generate_keypair_from_bind_phrase(const std::string& bind_phrase=""){
-  // Simple default seed, different for air and ground
-  std::array<uint8_t , crypto_box_SEEDBYTES> seed_ground{0};
-  std::array<uint8_t , crypto_box_SEEDBYTES> seed_drone{UINT8_MAX};
-  assert(bind_phrase.length()<=seed_ground.size());
-  // We just use the bind-phrase as seed
-  memcpy(seed_ground.data(),bind_phrase.c_str(),bind_phrase.length());
-  memcpy(seed_drone.data(),bind_phrase.c_str(),bind_phrase.length());
+  const auto seed_air= create_seed_from_password(bind_phrase, true);
+  const auto seed_gnd= create_seed_from_password(bind_phrase, false);
   KeypairData ret{};
-  crypto_box_seed_keypair(ret.drone.public_key.data(), ret.drone.secret_key.data(),seed_drone.data());
-  crypto_box_seed_keypair(ret.ground.public_key.data(), ret.ground.secret_key.data(),seed_ground.data());
+  crypto_box_seed_keypair(ret.drone.public_key.data(), ret.drone.secret_key.data(),seed_air.data());
+  crypto_box_seed_keypair(ret.ground.public_key.data(), ret.ground.secret_key.data(),seed_gnd.data());
   return ret;
 }
+
 
 static int write_keypair_to_file(const Keypair& keypair,const std::string& filename){
   FILE *fp;
