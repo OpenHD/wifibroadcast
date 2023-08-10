@@ -23,6 +23,6 @@
  * Generates a new keypair and saves it to file for later use.
  */
 int main(void) {
-  auto keypair=wbencryption::generate_keypair();
-  return wbencryption::write_to_file(keypair);
+  auto keypair=wb::generate_keypair();
+  return wb::write_to_file(keypair);
 }
