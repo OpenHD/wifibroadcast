@@ -54,7 +54,7 @@ WBTxRx::WBTxRx(std::vector<WifiCard> wifi_cards1,Options options1)
     m_receive_pollfds[i].fd = fd;
     m_receive_pollfds[i].events = POLLIN;
   }
-  wb::Keypair keypair{};
+  wb::KeyPair keypair{};
   if(m_options.encryption_key.has_value()){
     keypair= wb::read_keypair_from_file(m_options.encryption_key.value());
   }else{
@@ -750,6 +750,6 @@ void WBTxRx::recalculate_pollution_perc() {
 }
 
 std::string WBTxRx::options_to_string(const std::vector<std::string>& wifi_cards,const WBTxRx::Options& options) {
-  return fmt::format("Id:{} Cards:{} Keypair:{} ",options.use_gnd_identifier ? "Ground":"Air",StringHelper::string_vec_as_string(wifi_cards),
+  return fmt::format("Id:{} Cards:{} KeyPair:{} ",options.use_gnd_identifier ? "Ground":"Air",StringHelper::string_vec_as_string(wifi_cards),
                      options.encryption_key.value_or("DEFAULT_SEED"));
 }

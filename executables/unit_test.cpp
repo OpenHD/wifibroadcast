@@ -114,8 +114,8 @@ static void test_encrypt_decrypt_validate(const bool use_key_from_file,bool mess
   //const std::string filename_drone="drone.key";
   const std::string filename_gs="../example_keys/gs.key";
   const std::string filename_drone="../example_keys/drone.key";
-  wb::Keypair encKey{};
-  wb::Keypair decKey{};
+  wb::KeyPair encKey{};
+  wb::KeyPair decKey{};
   if(use_key_from_file){
     encKey=wb::read_keypair_from_file(filename_gs);
     decKey=wb::read_keypair_from_file(filename_drone);

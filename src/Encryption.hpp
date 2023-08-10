@@ -26,26 +26,34 @@ static constexpr auto ENCRYPTION_ADDITIONAL_VALIDATION_DATA=crypto_aead_chacha20
 
 namespace wb{
 
-struct Keypair{
+// A wb key consists of a public and private key
+struct KeyPair {
   std::array<uint8_t,crypto_box_PUBLICKEYBYTES> public_key;
   std::array<uint8_t,crypto_box_SECRETKEYBYTES> secret_key;
 };
 
-struct KeypairData{
+struct KeyPairTxRx {
   // NOTE: The key itself for drone exists of drone.secret and ground.public
-  Keypair drone;
-  Keypair ground;
+  KeyPair drone;
+  KeyPair ground;
+  // NOTE the air key consists of key1.sec and key2.pub and vice versa
+  KeyPair get_keypair_air(){
+    return KeyPair{drone.secret_key,ground.public_key};
+  }
+  KeyPair get_keypair_ground(){
+    return KeyPair{ground.secret_key,drone.public_key};
+  }
 };
 
 // Generates a new keypair. Non-deterministic, 100% secure.
-static KeypairData generate_keypair(){
-  KeypairData ret{};
+static KeyPairTxRx generate_keypair(){
+  KeyPairTxRx ret{};
   crypto_box_keypair(ret.drone.public_key.data(), ret.drone.secret_key.data());
   crypto_box_keypair(ret.ground.public_key.data(), ret.ground.secret_key.data());
   return ret;
 }
-static Keypair generate_keypair_deterministic(bool is_air){
-  Keypair ret{};
+static KeyPair generate_keypair_deterministic(bool is_air){
+  KeyPair ret{};
   std::array<uint8_t , crypto_box_SEEDBYTES> seed1{0};
   std::array<uint8_t , crypto_box_SEEDBYTES> seed2{1};
   crypto_box_seed_keypair(ret.public_key.data(), ret.secret_key.data(),is_air ? seed1.data(): seed2.data());
@@ -68,17 +76,17 @@ static  std::array<uint8_t , crypto_box_SEEDBYTES> create_seed_from_password(con
   return key;
 }
 
-static KeypairData generate_keypair_from_bind_phrase(const std::string& bind_phrase=""){
+static KeyPairTxRx generate_keypair_from_bind_phrase(const std::string& bind_phrase=""){
   const auto seed_air= create_seed_from_password(bind_phrase, true);
   const auto seed_gnd= create_seed_from_password(bind_phrase, false);
-  KeypairData ret{};
+  KeyPairTxRx ret{};
   crypto_box_seed_keypair(ret.drone.public_key.data(), ret.drone.secret_key.data(),seed_air.data());
   crypto_box_seed_keypair(ret.ground.public_key.data(), ret.ground.secret_key.data(),seed_gnd.data());
   return ret;
 }
 
 
-static int write_keypair_to_file(const Keypair& keypair,const std::string& filename){
+static int write_keypair_to_file(const KeyPair& keypair,const std::string& filename){
   FILE *fp;
   if ((fp = fopen(filename.c_str(), "w")) == nullptr) {
     std::cerr<<"Unable to save "<<filename<<std::endl;
@@ -90,8 +98,8 @@ static int write_keypair_to_file(const Keypair& keypair,const std::string& filen
   return 0;
 }
 
-static Keypair read_keypair_from_file(const std::string& filename){
-  Keypair ret{};
+static KeyPair read_keypair_from_file(const std::string& filename){
+  KeyPair ret{};
   FILE *fp;
   if ((fp = fopen(filename.c_str(), "r")) == nullptr) {
     throw std::runtime_error(fmt::format("Unable to open {}: {}", filename.c_str(), strerror(errno)));
@@ -108,12 +116,14 @@ static Keypair read_keypair_from_file(const std::string& filename){
   return ret;
 }
 
-static int write_to_file(const KeypairData& data){
-  if(!write_keypair_to_file(Keypair{data.drone.secret_key,data.ground.public_key},"drone.key")){
+static int write_to_file(const KeyPairTxRx& data){
+  if(!write_keypair_to_file(
+          KeyPair{data.drone.secret_key,data.ground.public_key},"drone.key")){
     return 1;
   }
   fprintf(stderr, "Drone keypair (drone sec + gs pub) saved to drone.key\n");
-  if(!write_keypair_to_file(Keypair{data.ground.secret_key,data.drone.public_key},"gs.key")){
+  if(!write_keypair_to_file(
+          KeyPair{data.ground.secret_key,data.drone.public_key},"gs.key")){
     return 1;
   }
   fprintf(stderr, "GS keypair (gs sec + drone pub) saved to gs.key\n");
@@ -140,7 +150,7 @@ class Encryptor {
    * @param keypair encryption key, otherwise enable a default deterministic encryption key by using std::nullopt
    * @param DISABLE_ENCRYPTION_FOR_PERFORMANCE only validate, do not encrypt (less CPU usage)
    */
-  explicit Encryptor(wb::Keypair keypair)
+  explicit Encryptor(wb::KeyPair keypair)
       : tx_secretkey(keypair.secret_key),
         rx_publickey(keypair.public_key){
   }
@@ -212,7 +222,7 @@ class Decryptor {
  public:
   // enable a default deterministic encryption key by using std::nullopt
   // else, pass path to file with encryption keys
-  explicit Decryptor(wb::Keypair keypair)
+  explicit Decryptor(wb::KeyPair keypair)
       :rx_secretkey(keypair.secret_key),tx_publickey(keypair.public_key){
     memset(session_key.data(), 0, sizeof(session_key));
   }
