@@ -128,8 +128,8 @@ static void test_encrypt_decrypt_validate(const bool useGeneratedFiles,bool mess
   // make session key (tx)
   encryptor.makeNewSessionKey(sessionKeyPacket.sessionKeyNonce, sessionKeyPacket.sessionKeyData);
   // and "receive" session key (rx)
-  assert(
-	  decryptor.onNewPacketSessionKeyData(sessionKeyPacket.sessionKeyNonce, sessionKeyPacket.sessionKeyData) == true);
+  assert(decryptor.onNewPacketSessionKeyData(sessionKeyPacket.sessionKeyNonce, sessionKeyPacket.sessionKeyData)
+         == Decryptor::SESSION_VALID_NEW);
   // now encrypt a couple of packets and decrypt them again afterwards
   for (uint64_t nonce = 0; nonce < 200; nonce++) {
 	const auto data = GenericHelper::createRandomDataBuffer(FEC_PACKET_MAX_PAYLOAD_SIZE);
