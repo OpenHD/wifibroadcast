@@ -122,7 +122,9 @@ static void test_encrypt_decrypt_validate(const bool use_key_from_file,bool mess
   }else{
     /*encKey=wb::generate_keypair_deterministic(false);
     decKey=wb::generate_keypair_deterministic(false);*/
+    const auto before=std::chrono::steady_clock::now();
     auto tmp=wb::generate_keypair_from_bind_phrase("openhd");
+    std::cout<<"Generating keypair from bind phrase took:"<<MyTimeHelper::R(std::chrono::steady_clock::now()-before)<<std::endl;
     encKey=tmp.drone;
     decKey=tmp.drone;
   }
