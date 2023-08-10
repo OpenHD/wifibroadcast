@@ -65,7 +65,12 @@ static constexpr const uint16_t
 // e.g. the final data throughput ~= original data throughput * fec overhead percentage
 static uint32_t calculate_n_secondary_fragments(uint32_t n_primary_fragments,uint32_t fec_overhead_perc){
   if(fec_overhead_perc<=0)return 0;
-  return std::lroundf(static_cast<float>(n_primary_fragments) * static_cast<float>(fec_overhead_perc) / 100.0f);
+  const float n_secondary=static_cast<float>(n_primary_fragments) * static_cast<float>(fec_overhead_perc) / 100.0f;
+  if(n_secondary<=1.0){
+    // Always calculate at least one FEC packet
+    return 1;
+  }
+  return std::lroundf(n_secondary);
 }
 // calculate n from k and percentage as used in FEC terms
 // (k: number of primary fragments, n: primary + secondary fragments)
