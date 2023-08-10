@@ -23,5 +23,6 @@ jobs:
           ./build/wfb_keygen
       - name: Unit test
         run: |
-          ./build/unit_test
+          cd build
+          ./unit_test
 
