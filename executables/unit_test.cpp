@@ -108,15 +108,15 @@ static void test_fec_stream_random_bs_fs_overhead_dropped(){
 }
 
 // Test encryption+packet validation and packet validation only
-static void test_encrypt_decrypt_validate(const bool useGeneratedFiles,bool message_signing_only) {
-  std::cout << "Using generated keypair (default seed otherwise):" << (useGeneratedFiles ? "y" : "n") << "\n";
+static void test_encrypt_decrypt_validate(const bool use_key_from_file,bool message_signing_only) {
+  std::cout << "Using generated keypair (default seed otherwise):" << (use_key_from_file ? "y" : "n") << "\n";
   //const std::string filename_gs="gs.key";
   //const std::string filename_drone="drone.key";
   const std::string filename_gs="../example_keys/gs.key";
   const std::string filename_drone="../example_keys/drone.key";
   wb::Keypair encKey{};
   wb::Keypair decKey{};
-  if(useGeneratedFiles){
+  if(use_key_from_file){
     encKey=wb::read_keypair_from_file(filename_gs);
     decKey=wb::read_keypair_from_file(filename_drone);
   }else{
