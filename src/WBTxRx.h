@@ -283,8 +283,8 @@ class WBTxRx {
   // For multiple RX cards the card with the highest rx rssi is used to inject packets on
   std::atomic<int> m_curr_tx_card=0;
   SessionKeyPacket m_tx_sess_key_packet;
-  std::unique_ptr<Encryptor> m_encryptor;
-  std::unique_ptr<Decryptor> m_decryptor;
+  std::unique_ptr<wb::Encryptor> m_encryptor;
+  std::unique_ptr<wb::Decryptor> m_decryptor;
   struct PcapTxRx{
     pcap_t *tx= nullptr;
     pcap_t *rx= nullptr;

@@ -114,17 +114,27 @@ static void test_encrypt_decrypt_validate(const bool useGeneratedFiles,bool mess
   //const std::string filename_drone="drone.key";
   const std::string filename_gs="../example_keys/gs.key";
   const std::string filename_drone="../example_keys/drone.key";
-  std::optional<std::string> encKey = useGeneratedFiles ? std::optional<std::string>(filename_gs) : std::nullopt;
-  std::optional<std::string> decKey = useGeneratedFiles ? std::optional<std::string>(filename_drone) : std::nullopt;
+  wb::Keypair encKey{};
+  wb::Keypair decKey{};
+  if(useGeneratedFiles){
+    encKey=wb::read_keypair_from_file(filename_gs);
+    decKey=wb::read_keypair_from_file(filename_drone);
+  }else{
+    /*encKey=wb::generate_keypair_deterministic(false);
+    decKey=wb::generate_keypair_deterministic(false);*/
+    auto tmp=wb::generate_keypair_from_bind_phrase("openhd");
+    encKey=tmp.drone;
+    decKey=tmp.drone;
+  }
   if(message_signing_only){
     std::cout<<"Testing message signing\n";
   }else{
     std::cout<<"Testing encryption & signing\n";
   }
 
-  Encryptor encryptor{encKey};
+  wb::Encryptor encryptor{encKey};
   encryptor.set_encryption_enabled(!message_signing_only);
-  Decryptor decryptor{decKey};
+  wb::Decryptor decryptor{decKey};
   decryptor.set_encryption_enabled(!message_signing_only);
   struct SessionStuff{
     std::array<uint8_t, crypto_box_NONCEBYTES> sessionKeyNonce{};  // random data
@@ -135,7 +145,7 @@ static void test_encrypt_decrypt_validate(const bool useGeneratedFiles,bool mess
   encryptor.makeNewSessionKey(sessionKeyPacket.sessionKeyNonce, sessionKeyPacket.sessionKeyData);
   // and "receive" session key (rx)
   assert(decryptor.onNewPacketSessionKeyData(sessionKeyPacket.sessionKeyNonce, sessionKeyPacket.sessionKeyData)
-         == Decryptor::SESSION_VALID_NEW);
+         == wb::Decryptor::SESSION_VALID_NEW);
   // now encrypt a couple of packets and decrypt them again afterwards
   for (uint64_t nonce = 0; nonce < 200; nonce++) {
 	const auto data = GenericHelper::createRandomDataBuffer(FEC_PACKET_MAX_PAYLOAD_SIZE);

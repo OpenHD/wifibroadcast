@@ -27,6 +27,97 @@ static_assert(crypto_onetimeauth_BYTES==crypto_aead_chacha20poly1305_ABYTES);
 // Encryption (or packet validation) adds this many bytes to the end of the message
 static constexpr auto ENCRYPTION_ADDITIONAL_VALIDATION_DATA=crypto_aead_chacha20poly1305_ABYTES;
 
+namespace wb{
+
+struct Keypair{
+  std::array<uint8_t,crypto_box_PUBLICKEYBYTES> public_key;
+  std::array<uint8_t,crypto_box_SECRETKEYBYTES> secret_key;
+};
+
+struct KeypairData{
+  // NOTE: The key itself for drone exists of drone.secret and ground.public
+  Keypair drone;
+  Keypair ground;
+};
+
+// Generates a new keypair. Non-deterministic, 100% secure.
+static KeypairData generate_keypair(){
+  KeypairData ret{};
+  crypto_box_keypair(ret.drone.public_key.data(), ret.drone.secret_key.data());
+  crypto_box_keypair(ret.ground.public_key.data(), ret.ground.secret_key.data());
+  return ret;
+}
+static Keypair generate_keypair_deterministic(bool is_air){
+  Keypair ret{};
+  std::array<uint8_t , crypto_box_SEEDBYTES> seed1{0};
+  std::array<uint8_t , crypto_box_SEEDBYTES> seed2{1};
+  crypto_box_seed_keypair(ret.public_key.data(), ret.secret_key.data(),is_air ? seed1.data(): seed2.data());
+  return ret;
+}
+
+/**
+ * Generates a deterministic keypair from the openhd bind_phrase. Deterministic,
+ * same bind phrase will always generate the same key-pairs (but reversing is hard)
+ */
+static KeypairData generate_keypair_from_bind_phrase(const std::string& bind_phrase=""){
+  // Simple default seed, different for air and ground
+  std::array<uint8_t , crypto_box_SEEDBYTES> seed_ground{0};
+  std::array<uint8_t , crypto_box_SEEDBYTES> seed_drone{UINT8_MAX};
+  assert(bind_phrase.length()<=seed_ground.size());
+  // We just use the bind-phrase as seed
+  memcpy(seed_ground.data(),bind_phrase.c_str(),bind_phrase.length());
+  memcpy(seed_drone.data(),bind_phrase.c_str(),bind_phrase.length());
+  KeypairData ret{};
+  crypto_box_seed_keypair(ret.drone.public_key.data(), ret.drone.secret_key.data(),seed_drone.data());
+  crypto_box_seed_keypair(ret.ground.public_key.data(), ret.ground.secret_key.data(),seed_ground.data());
+  return ret;
+}
+
+static int write_keypair_to_file(const Keypair& keypair,const std::string& filename){
+  FILE *fp;
+  if ((fp = fopen(filename.c_str(), "w")) == nullptr) {
+    std::cerr<<"Unable to save "<<filename<<std::endl;
+    return 1;
+  }
+  fwrite(keypair.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp);
+  fwrite(keypair.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp);
+  fclose(fp);
+  return 0;
+}
+
+static Keypair read_keypair_from_file(const std::string& filename){
+  Keypair ret{};
+  FILE *fp;
+  if ((fp = fopen(filename.c_str(), "r")) == nullptr) {
+    throw std::runtime_error(fmt::format("Unable to open {}: {}", filename.c_str(), strerror(errno)));
+  }
+  if (fread(ret.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp) != 1) {
+    fclose(fp);
+    throw std::runtime_error(fmt::format("Unable to read secret key: {}", strerror(errno)));
+  }
+  if (fread(ret.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp) != 1) {
+    fclose(fp);
+    throw std::runtime_error(fmt::format("Unable to read public key: {}", strerror(errno)));
+  }
+  fclose(fp);
+  return ret;
+}
+
+static int write_to_file(const KeypairData& data){
+  if(!write_keypair_to_file(Keypair{data.drone.secret_key,data.ground.public_key},"drone.key")){
+    return 1;
+  }
+  fprintf(stderr, "Drone keypair (drone sec + gs pub) saved to drone.key\n");
+
+  if(!write_keypair_to_file(Keypair{data.ground.secret_key,data.drone.public_key},"gs.key")){
+    return 1;
+  }
+  fprintf(stderr, "GS keypair (gs sec + drone pub) saved to gs.key\n");
+
+  return 0;
+}
+
+
 // https://libsodium.gitbook.io/doc/key_derivation
 // Helper since we both support encryption and one time validation to save cpu performance
 static std::array<uint8_t,32> create_onetimeauth_subkey(const uint64_t nonce,const std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES> session_key){
@@ -46,26 +137,9 @@ class Encryptor {
    * @param keypair encryption key, otherwise enable a default deterministic encryption key by using std::nullopt
    * @param DISABLE_ENCRYPTION_FOR_PERFORMANCE only validate, do not encrypt (less CPU usage)
    */
-  explicit Encryptor(std::optional<std::string> keypair){
-    if (keypair == std::nullopt) {
-      // use default encryption keys
-      crypto_box_seed_keypair(rx_publickey.data(), tx_secretkey.data(), DEFAULT_ENCRYPTION_SEED.data());
-      wifibroadcast::log::get_default()->debug("Using default keys");
-    } else {
-      FILE *fp;
-      if ((fp = fopen(keypair->c_str(), "r")) == nullptr) {
-        throw std::runtime_error(fmt::format("Unable to open {}: {}", keypair->c_str(), strerror(errno)));
-      }
-      if (fread(tx_secretkey.data(), crypto_box_SECRETKEYBYTES, 1, fp) != 1) {
-        fclose(fp);
-        throw std::runtime_error(fmt::format("Unable to read tx secret key: {}", strerror(errno)));
-      }
-      if (fread(rx_publickey.data(), crypto_box_PUBLICKEYBYTES, 1, fp) != 1) {
-        fclose(fp);
-        throw std::runtime_error(fmt::format("Unable to read rx public key: {}", strerror(errno)));
-      }
-      fclose(fp);
-    }
+  explicit Encryptor(wb::Keypair keypair)
+      : tx_secretkey(keypair.secret_key),
+        rx_publickey(keypair.public_key){
   }
   /**
    * Creates a new session key, simply put, the data we can send publicly
@@ -95,7 +169,7 @@ class Encryptor {
     if(!m_encrypt_data){
       memcpy(dest,src, src_len);
       uint8_t* sign=dest+src_len;
-      const auto sub_key=create_onetimeauth_subkey(nonce,session_key);
+      const auto sub_key=wb::create_onetimeauth_subkey(nonce,session_key);
       crypto_onetimeauth(sign,src,src_len,sub_key.data());
       return src_len+crypto_onetimeauth_BYTES;
     }
@@ -123,8 +197,8 @@ class Encryptor {
   }
  private:
   // tx->rx keypair
-  std::array<uint8_t, crypto_box_SECRETKEYBYTES> tx_secretkey{};
-  std::array<uint8_t, crypto_box_PUBLICKEYBYTES> rx_publickey{};
+  const std::array<uint8_t, crypto_box_SECRETKEYBYTES> tx_secretkey{};
+  const std::array<uint8_t, crypto_box_PUBLICKEYBYTES> rx_publickey{};
   std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES> session_key{};
   // use this one if you are worried about CPU usage when using encryption
   bool m_encrypt_data= true;
@@ -134,34 +208,15 @@ class Decryptor {
  public:
   // enable a default deterministic encryption key by using std::nullopt
   // else, pass path to file with encryption keys
-  explicit Decryptor(std::optional<std::string> keypair){
-    if (keypair == std::nullopt) {
-      crypto_box_seed_keypair(tx_publickey.data(), rx_secretkey.data(), DEFAULT_ENCRYPTION_SEED.data());
-      wifibroadcast::log::get_default()->debug("Using default keys");
-    } else {
-      FILE *fp;
-      if ((fp = fopen(keypair->c_str(), "r")) == nullptr) {
-        throw std::runtime_error(fmt::format("Unable to open {}: {}", keypair->c_str(), strerror(errno)));
-      }
-      if (fread(rx_secretkey.data(), crypto_box_SECRETKEYBYTES, 1, fp) != 1) {
-        fclose(fp);
-        throw std::runtime_error(fmt::format("Unable to read rx secret key: {}", strerror(errno)));
-      }
-      if (fread(tx_publickey.data(), crypto_box_PUBLICKEYBYTES, 1, fp) != 1) {
-        fclose(fp);
-        throw std::runtime_error(fmt::format("Unable to read tx public key: {}", strerror(errno)));
-      }
-      fclose(fp);
-    }
+  explicit Decryptor(wb::Keypair keypair)
+      :rx_secretkey(keypair.secret_key),tx_publickey(keypair.public_key){
     memset(session_key.data(), 0, sizeof(session_key));
   }
  private:
   // use this one if you are worried about CPU usage when using encryption
   bool m_encrypt_data= true;
- public:
-  std::array<uint8_t, crypto_box_SECRETKEYBYTES> rx_secretkey{};
- public:
-  std::array<uint8_t, crypto_box_PUBLICKEYBYTES> tx_publickey{};
+  const std::array<uint8_t, crypto_box_SECRETKEYBYTES> rx_secretkey{};
+  const std::array<uint8_t, crypto_box_PUBLICKEYBYTES> tx_publickey{};
   std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES> session_key{};
  public:
   static constexpr auto SESSION_VALID_NEW=0;
@@ -174,7 +229,7 @@ class Decryptor {
    *
    */
   int onNewPacketSessionKeyData(const std::array<uint8_t, crypto_box_NONCEBYTES> &sessionKeyNonce,
-                                 const std::array<uint8_t,crypto_aead_chacha20poly1305_KEYBYTES+ crypto_box_MACBYTES> &sessionKeyData) {
+                                const std::array<uint8_t,crypto_aead_chacha20poly1305_KEYBYTES+ crypto_box_MACBYTES> &sessionKeyData) {
     std::array<uint8_t, sizeof(session_key)> new_session_key{};
     if (crypto_box_open_easy(new_session_key.data(),
                              sessionKeyData.data(), sessionKeyData.size(),
@@ -204,7 +259,7 @@ class Decryptor {
       assert(payload_size>0);
       const uint8_t* sign=encrypted+payload_size;
       //const int res=crypto_auth_hmacsha256_verify(sign,msg,payload_size,session_key.data());
-      const auto sub_key=create_onetimeauth_subkey(nonce,session_key);
+      const auto sub_key=wb::create_onetimeauth_subkey(nonce,session_key);
       const int res=crypto_onetimeauth_verify(sign,encrypted,payload_size,sub_key.data());
       if(res!=-1){
         memcpy(dest,encrypted,payload_size);
@@ -244,46 +299,7 @@ class Decryptor {
   }
 };
 
-namespace wbencryption{
+} // namespace wb end
 
-struct KeypairData{
-  unsigned char drone_publickey[crypto_box_PUBLICKEYBYTES];
-  unsigned char drone_secretkey[crypto_box_SECRETKEYBYTES];
-  unsigned char gs_publickey[crypto_box_PUBLICKEYBYTES];
-  unsigned char gs_secretkey[crypto_box_SECRETKEYBYTES];
-};
-
-static KeypairData generate_keypair(){
-  KeypairData ret{};
-  crypto_box_keypair(ret.drone_publickey, ret.drone_secretkey);
-  crypto_box_keypair(ret.gs_publickey, ret.gs_secretkey);
-  return ret;
-}
-
-static int write_to_file(const KeypairData& data){
-  FILE *fp;
-  if ((fp = fopen("drone.key", "w")) == NULL) {
-    perror("Unable to save drone.key");
-    return 1;
-  }
-  fwrite(data.drone_secretkey, crypto_box_SECRETKEYBYTES, 1, fp);
-  fwrite(data.gs_publickey, crypto_box_PUBLICKEYBYTES, 1, fp);
-  fclose(fp);
-
-  fprintf(stderr, "Drone keypair (drone sec + gs pub) saved to drone.key\n");
-
-  if ((fp = fopen("gs.key", "w")) == NULL) {
-    perror("Unable to save gs.key");
-    return 1;
-  }
-
-  fwrite(data.gs_secretkey, crypto_box_SECRETKEYBYTES, 1, fp);
-  fwrite(data.drone_publickey, crypto_box_PUBLICKEYBYTES, 1, fp);
-  fclose(fp);
-  fprintf(stderr, "GS keypair (gs sec + drone pub) saved to gs.key\n");
-  return 0;
-}
-
-}
 
 #endif //ENCRYPTION_HPP
