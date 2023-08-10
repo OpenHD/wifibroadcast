@@ -88,6 +88,8 @@ class WBTxRx {
     bool debug_decrypt_time= false;
     // Debug packet gaps
     bool debug_packet_gaps= false;
+    // Debug multi rx packets variance
+    bool debug_multi_rx_packets_variance= false;
     // This is only for debugging / testing, inject packets with a fixed MAC - won't be received as valid packets by another rx instance
     bool enable_non_openhd_mode= false;
   };

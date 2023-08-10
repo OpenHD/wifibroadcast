@@ -180,6 +180,8 @@ void WBTxRx::loop_receive_packets() {
   if(m_options.receive_thread_max_realtime){
     SchedulingHelper::setThreadParamsMaxRealtime();
   }
+  std::vector<int> packets_per_card{};
+  packets_per_card.resize(m_wifi_cards.size());
   while (keep_receiving){
     const int timeoutMS = (int) std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::seconds(1)).count();
     int rc = poll(m_receive_pollfds.data(), m_receive_pollfds.size(), timeoutMS);
@@ -215,9 +217,20 @@ void WBTxRx::loop_receive_packets() {
         }
       }
       if (m_receive_pollfds[i].revents & POLLIN) {
-        loop_iter(i);
+        const auto n_packets=loop_iter(i);
+        packets_per_card[i]=n_packets;
         rc -= 1;
+      }else{
+        packets_per_card[i]=0;
       }
+    }
+    if(m_options.debug_multi_rx_packets_variance){
+      std::stringstream ss;
+      ss<<"Packets";
+      for(int i=0;i<packets_per_card.size();i++){
+        ss<<fmt::format(" Card{}:{}",i,packets_per_card[i]);
+      }
+      m_console->debug("{}",ss.str());
     }
   }
 }
