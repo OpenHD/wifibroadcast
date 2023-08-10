@@ -111,7 +111,7 @@ static void test_fec_stream_random_bs_fs_overhead_dropped(){
 static void test_encrypt_decrypt_validate(const bool useGeneratedFiles,bool message_signing_only) {
   std::cout << "Using generated keypair (default seed otherwise):" << (useGeneratedFiles ? "y" : "n") << "\n";
   const std::string filename_gs="gs.key"; //"../example_keys/gs.key"
-  const std::string filename_drone="drone.key" //"../example_keys/drone.key"
+  const std::string filename_drone="drone.key"; //"../example_keys/drone.key"
   std::optional<std::string> encKey = useGeneratedFiles ? std::optional<std::string>(filename_gs) : std::nullopt;
   std::optional<std::string> decKey = useGeneratedFiles ? std::optional<std::string>(filename_drone) : std::nullopt;
   if(message_signing_only){
@@ -120,8 +120,10 @@ static void test_encrypt_decrypt_validate(const bool useGeneratedFiles,bool mess
     std::cout<<"Testing encryption & signing\n";
   }
 
-  Encryptor encryptor{encKey,message_signing_only};
-  Decryptor decryptor{decKey,message_signing_only};
+  Encryptor encryptor{encKey};
+  encryptor.set_encryption_enabled(!message_signing_only);
+  Decryptor decryptor{decKey};
+  encryptor.set_encryption_enabled(!message_signing_only);
   struct SessionStuff{
     std::array<uint8_t, crypto_box_NONCEBYTES> sessionKeyNonce{};  // random data
     std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES + crypto_box_MACBYTES> sessionKeyData{};

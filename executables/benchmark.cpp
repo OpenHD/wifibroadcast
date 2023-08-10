@@ -98,8 +98,10 @@ void benchmark_fec_encode(const Options &options, bool printBlockTime = false) {
 void benchmark_crypt(const Options &options,const bool packet_validation_only) {
   assert(options.benchmarkType == BENCHMARK_ENCRYPT || options.benchmarkType == BENCHMARK_DECRYPT);
   const bool encrypt=options.benchmarkType==BENCHMARK_ENCRYPT;
-  Encryptor encryptor{std::nullopt,packet_validation_only};
-  Decryptor decryptor{std::nullopt,packet_validation_only};
+  Encryptor encryptor{std::nullopt};
+  encryptor.set_encryption_enabled(!packet_validation_only);
+  Decryptor decryptor{std::nullopt};
+  encryptor.set_encryption_enabled(!packet_validation_only);
   std::array<uint8_t, crypto_box_NONCEBYTES> sessionKeyNonce{};
   std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES + crypto_box_MACBYTES> sessionKeyData{};
   encryptor.makeNewSessionKey(sessionKeyNonce, sessionKeyData);

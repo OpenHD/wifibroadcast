@@ -46,8 +46,7 @@ class Encryptor {
    * @param keypair encryption key, otherwise enable a default deterministic encryption key by using std::nullopt
    * @param DISABLE_ENCRYPTION_FOR_PERFORMANCE only validate, do not encrypt (less CPU usage)
    */
-  explicit Encryptor(std::optional<std::string> keypair, const bool DISABLE_ENCRYPTION_FOR_PERFORMANCE = false)
-      : DISABLE_ENCRYPTION_FOR_PERFORMANCE(DISABLE_ENCRYPTION_FOR_PERFORMANCE) {
+  explicit Encryptor(std::optional<std::string> keypair){
     if (keypair == std::nullopt) {
       // use default encryption keys
       crypto_box_seed_keypair(rx_publickey.data(), tx_secretkey.data(), DEFAULT_ENCRYPTION_SEED.data());
@@ -93,7 +92,7 @@ class Encryptor {
    * Returns written data size (msg payload plus sign data)
    */
   int authenticate_and_encrypt(const uint64_t nonce,const uint8_t *src,std::size_t src_len,uint8_t* dest){
-    if(DISABLE_ENCRYPTION_FOR_PERFORMANCE){
+    if(!m_encrypt_data){
       memcpy(dest,src, src_len);
       uint8_t* sign=dest+src_len;
       const auto sub_key=create_onetimeauth_subkey(nonce,session_key);
@@ -120,7 +119,7 @@ class Encryptor {
    * @param encryption_enabled
    */
   void set_encryption_enabled(bool encryption_enabled){
-    DISABLE_ENCRYPTION_FOR_PERFORMANCE=!encryption_enabled;
+    m_encrypt_data =encryption_enabled;
   }
  private:
   // tx->rx keypair
@@ -128,16 +127,14 @@ class Encryptor {
   std::array<uint8_t, crypto_box_PUBLICKEYBYTES> rx_publickey{};
   std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES> session_key{};
   // use this one if you are worried about CPU usage when using encryption
-  bool DISABLE_ENCRYPTION_FOR_PERFORMANCE;
-  //static_assert(crypto_onetimeauth_BYTES);
+  bool m_encrypt_data= true;
 };
 
 class Decryptor {
  public:
   // enable a default deterministic encryption key by using std::nullopt
   // else, pass path to file with encryption keys
-  explicit Decryptor(std::optional<std::string> keypair, const bool DISABLE_ENCRYPTION_FOR_PERFORMANCE = false)
-      : DISABLE_ENCRYPTION_FOR_PERFORMANCE(DISABLE_ENCRYPTION_FOR_PERFORMANCE) {
+  explicit Decryptor(std::optional<std::string> keypair){
     if (keypair == std::nullopt) {
       crypto_box_seed_keypair(tx_publickey.data(), rx_secretkey.data(), DEFAULT_ENCRYPTION_SEED.data());
       wifibroadcast::log::get_default()->debug("Using default keys");
@@ -160,7 +157,7 @@ class Decryptor {
   }
  private:
   // use this one if you are worried about CPU usage when using encryption
-  bool DISABLE_ENCRYPTION_FOR_PERFORMANCE;
+  bool m_encrypt_data= true;
  public:
   std::array<uint8_t, crypto_box_SECRETKEYBYTES> rx_secretkey{};
  public:
@@ -202,7 +199,7 @@ class Decryptor {
    * @param dest needs to be at least @param encrypted - 16 bytes big.
    */
   bool authenticate_and_decrypt(const uint64_t& nonce,const uint8_t* encrypted,int encrypted_size,uint8_t* dest){
-    if(DISABLE_ENCRYPTION_FOR_PERFORMANCE){
+    if(!m_encrypt_data){
       const auto payload_size=encrypted_size-crypto_onetimeauth_BYTES;
       assert(payload_size>0);
       const uint8_t* sign=encrypted+payload_size;
@@ -233,7 +230,7 @@ class Decryptor {
     return nullptr;
   }
   int get_additional_payload_size() const{
-    if(DISABLE_ENCRYPTION_FOR_PERFORMANCE){
+    if(m_encrypt_data){
       return crypto_onetimeauth_BYTES;
     }
     return crypto_aead_chacha20poly1305_ABYTES;
@@ -243,7 +240,7 @@ class Decryptor {
    * @param encryption_enabled
    */
   void set_encryption_enabled(bool encryption_enabled){
-    DISABLE_ENCRYPTION_FOR_PERFORMANCE=!encryption_enabled;
+    m_encrypt_data =encryption_enabled;
   }
 };
 
