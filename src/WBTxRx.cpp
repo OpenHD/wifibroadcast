@@ -357,11 +357,17 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
     // card 2 on the ground likely picks up such a packet and if we were not to ignore it, we'd get the session key
     // TODO make it better -
     // for now, ignore session key packets not from card 0
-    if(wlan_idx!=0){
+    // Not needed anymore, due to unique air / ground id's
+    /*if(wlan_idx!=0){
       return ;
-    }
+    }*/
     SessionKeyPacket &sessionKeyPacket = *((SessionKeyPacket*) parsedPacket->payload);
-    if (m_decryptor->onNewPacketSessionKeyData(sessionKeyPacket.sessionKeyNonce, sessionKeyPacket.sessionKeyData)) {
+    const auto decrypt_res=m_decryptor->onNewPacketSessionKeyData(sessionKeyPacket.sessionKeyNonce, sessionKeyPacket.sessionKeyData);
+    if(wlan_idx==0 && (decrypt_res==Decryptor::SESSION_VALID_NEW || decrypt_res==Decryptor::SESSION_VALID_NOT_NEW)){
+      m_pollution_openhd_rx_packets++;
+      recalculate_pollution_perc();
+    }
+    if (decrypt_res==Decryptor::SESSION_VALID_NEW) {
       m_console->debug("Initializing new session.");
       m_rx_stats.n_received_valid_session_key_packets++;
       for(auto& handler:m_rx_handlers){
@@ -369,10 +375,6 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
         if(opt_cb_session){
           opt_cb_session();
         }
-      }
-      if(wlan_idx==0){
-        m_pollution_openhd_rx_packets++;
-        recalculate_pollution_perc();
       }
     }
   }else{
