@@ -19,10 +19,7 @@
 // The Encryption / Decryption name(s) are legacy -
 // The more difficult part is dealing with the session key stuff, and this class makes it a bit easier to use
 
-// For developing or when encryption is not important, you can use this default seed to
-// create deterministic rx and tx keys
-static const std::array<unsigned char, crypto_box_SEEDBYTES> DEFAULT_ENCRYPTION_SEED = {0};
-
+// one time authentication and encryption nicely are really similar
 static_assert(crypto_onetimeauth_BYTES==crypto_aead_chacha20poly1305_ABYTES);
 // Encryption (or packet validation) adds this many bytes to the end of the message
 static constexpr auto ENCRYPTION_ADDITIONAL_VALIDATION_DATA=crypto_aead_chacha20poly1305_ABYTES;
@@ -116,12 +113,10 @@ static int write_to_file(const KeypairData& data){
     return 1;
   }
   fprintf(stderr, "Drone keypair (drone sec + gs pub) saved to drone.key\n");
-
   if(!write_keypair_to_file(Keypair{data.ground.secret_key,data.drone.public_key},"gs.key")){
     return 1;
   }
   fprintf(stderr, "GS keypair (gs sec + drone pub) saved to gs.key\n");
-
   return 0;
 }
 
@@ -169,18 +164,19 @@ class Encryptor {
    * (Or if encryption is disabled, only calculate the message sign)
    * and write the (encrypted) data appended by the validation data into dest
    * @param nonce: needs to be different for every packet
-   * @param authenticate_only: if
+   * @param src @param src_len message to encrypt
    * @param dest needs to point to a memory region at least @param src_len + 16 bytes big
    * Returns written data size (msg payload plus sign data)
    */
-  int authenticate_and_encrypt(const uint64_t nonce,const uint8_t *src,std::size_t src_len,uint8_t* dest){
-    if(!m_encrypt_data){
+  int authenticate_and_encrypt(const uint64_t nonce,const uint8_t *src,int src_len,uint8_t* dest){
+    if(!m_encrypt_data){ // Only sign message
       memcpy(dest,src, src_len);
       uint8_t* sign=dest+src_len;
       const auto sub_key=wb::create_onetimeauth_subkey(nonce,session_key);
       crypto_onetimeauth(sign,src,src_len,sub_key.data());
       return src_len+crypto_onetimeauth_BYTES;
     }
+    // sign and encrypt all together
     long long unsigned int ciphertext_len;
     crypto_aead_chacha20poly1305_encrypt(dest, &ciphertext_len,
                                          src, src_len,
@@ -220,13 +216,6 @@ class Decryptor {
       :rx_secretkey(keypair.secret_key),tx_publickey(keypair.public_key){
     memset(session_key.data(), 0, sizeof(session_key));
   }
- private:
-  // use this one if you are worried about CPU usage when using encryption
-  bool m_encrypt_data= true;
-  const std::array<uint8_t, crypto_box_SECRETKEYBYTES> rx_secretkey{};
-  const std::array<uint8_t, crypto_box_PUBLICKEYBYTES> tx_publickey{};
-  std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES> session_key{};
- public:
   static constexpr auto SESSION_VALID_NEW=0;
   static constexpr auto SESSION_VALID_NOT_NEW=1;
   static constexpr auto SESSION_NOT_VALID=-1;
@@ -305,6 +294,12 @@ class Decryptor {
   void set_encryption_enabled(bool encryption_enabled){
     m_encrypt_data =encryption_enabled;
   }
+ private:
+  // use this one if you are worried about CPU usage when using encryption
+  bool m_encrypt_data= true;
+  const std::array<uint8_t, crypto_box_SECRETKEYBYTES> rx_secretkey{};
+  const std::array<uint8_t, crypto_box_PUBLICKEYBYTES> tx_publickey{};
+  std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES> session_key{};
 };
 
 } // namespace wb end
