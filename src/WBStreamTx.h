@@ -138,7 +138,7 @@ class WBStreamTx {
   void process_enqueued_packet(const EnqueuedPacket& packet);
   void process_enqueued_block(const EnqueuedBlock& block);
   void send_packet(const uint8_t* packet,int packet_len);
-  std::atomic<bool> m_enable_encryption=false;
+  std::atomic<bool> m_enable_encryption=true;
 };
 
 #endif  // WIFIBROADCAST_WBSTREAMTX_H
