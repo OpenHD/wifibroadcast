@@ -125,7 +125,7 @@ static void test_encrypt_decrypt_validate(const bool useGeneratedFiles,bool mess
   Encryptor encryptor{encKey};
   encryptor.set_encryption_enabled(!message_signing_only);
   Decryptor decryptor{decKey};
-  encryptor.set_encryption_enabled(!message_signing_only);
+  decryptor.set_encryption_enabled(!message_signing_only);
   struct SessionStuff{
     std::array<uint8_t, crypto_box_NONCEBYTES> sessionKeyNonce{};  // random data
     std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES + crypto_box_MACBYTES> sessionKeyData{};

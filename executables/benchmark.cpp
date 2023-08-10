@@ -101,7 +101,7 @@ void benchmark_crypt(const Options &options,const bool packet_validation_only) {
   Encryptor encryptor{std::nullopt};
   encryptor.set_encryption_enabled(!packet_validation_only);
   Decryptor decryptor{std::nullopt};
-  encryptor.set_encryption_enabled(!packet_validation_only);
+  decryptor.set_encryption_enabled(!packet_validation_only);
   std::array<uint8_t, crypto_box_NONCEBYTES> sessionKeyNonce{};
   std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES + crypto_box_MACBYTES> sessionKeyData{};
   encryptor.makeNewSessionKey(sessionKeyNonce, sessionKeyData);
