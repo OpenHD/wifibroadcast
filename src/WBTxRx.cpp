@@ -384,9 +384,27 @@ void WBTxRx::on_new_packet(const uint8_t wlan_idx, const pcap_pkthdr &hdr,
     }*/
     SessionKeyPacket &sessionKeyPacket = *((SessionKeyPacket*) parsedPacket->payload);
     const auto decrypt_res=m_decryptor->onNewPacketSessionKeyData(sessionKeyPacket.sessionKeyNonce, sessionKeyPacket.sessionKeyData);
-    if(wlan_idx==0 && (decrypt_res==wb::Decryptor::SESSION_VALID_NEW || decrypt_res==wb::Decryptor::SESSION_VALID_NOT_NEW)){
-      m_pollution_openhd_rx_packets++;
-      recalculate_pollution_perc();
+    if(decrypt_res==wb::Decryptor::SESSION_VALID_NEW || decrypt_res==wb::Decryptor::SESSION_VALID_NOT_NEW){
+      if(wlan_idx==0){ // Pollution is calculated only on card0
+        m_pollution_openhd_rx_packets++;
+        recalculate_pollution_perc();
+      }
+      m_likely_wrong_encryption_valid_session_keys++;
+    }else{
+      m_likely_wrong_encryption_invalid_session_keys++;
+    }
+    // A lot of invalid session keys and no valid session keys hint at a bind phrase mismatch
+    const auto elapsed_likely_wrong_key=std::chrono::steady_clock::now()-m_likely_wrong_encryption_last_check;
+    if(elapsed_likely_wrong_key>std::chrono::seconds(5)){
+      // No valid session key(s) and at least one invalid session key
+      if(m_likely_wrong_encryption_valid_session_keys==0 && m_likely_wrong_encryption_invalid_session_keys>=1){
+        m_rx_stats.likely_mismatching_encryption_key= true;
+      }else{
+        m_rx_stats.likely_mismatching_encryption_key= false;
+      }
+      m_likely_wrong_encryption_last_check=std::chrono::steady_clock::now();
+      m_likely_wrong_encryption_valid_session_keys=0;
+      m_likely_wrong_encryption_invalid_session_keys=0;
     }
     if (decrypt_res==wb::Decryptor::SESSION_VALID_NEW) {
       m_console->debug("Initializing new session.");

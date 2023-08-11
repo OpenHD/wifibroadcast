@@ -198,6 +198,8 @@ class WBTxRx {
      // Usefully for channel scan - n packets that are quite likely coming from an openhd air / ground unit (respective depending on if air/gnd mode)
      // But not validated - e.g. on a channel scan, session key packet(s) have not been received yet
      int curr_n_likely_openhd_packets=0;
+     // Usefully for telling the user that he is probably using incompatible bind phrases / encryption keys on air and ground
+     bool likely_mismatching_encryption_key= false;
    };
    struct RxStatsPerCard{
      int card_index=0; // 0 for first card, 1 for second, ...
@@ -361,6 +363,10 @@ class WBTxRx {
   uint32_t m_pollution_openhd_rx_packets=0;
   std::chrono::steady_clock::time_point m_last_pollution_calculation=std::chrono::steady_clock::now();
   void recalculate_pollution_perc();
+  // These are 'extra' for calculating the "likely wrong encryption keys" value
+  uint32_t m_likely_wrong_encryption_valid_session_keys=0;
+  std::chrono::steady_clock::time_point m_likely_wrong_encryption_last_check=std::chrono::steady_clock::now();
+  uint32_t m_likely_wrong_encryption_invalid_session_keys=0;
 };
 
 static std::ostream& operator<<(std::ostream& strm, const WBTxRx::TxStats& data){
