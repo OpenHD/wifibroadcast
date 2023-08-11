@@ -45,7 +45,7 @@ WBTxRx::WBTxRx(std::vector<WifiCard> wifi_cards1,Options options1)
     pcapTxRx.rx=wifibroadcast::pcap_helper::open_pcap_rx(wifi_card.name);
     //pcapTxRx.tx=pcapTxRx.rx;
     pcapTxRx.tx=wifibroadcast::pcap_helper::open_pcap_tx(wifi_card.name);
-    if(m_options.set_direction){
+    if(m_options.pcap_rx_set_direction){
       const auto ret=pcap_setdirection(pcapTxRx.rx, PCAP_D_IN);
       m_console->debug("pcap_setdirection() returned {}",ret);
     }
@@ -54,14 +54,14 @@ WBTxRx::WBTxRx(std::vector<WifiCard> wifi_cards1,Options options1)
     m_receive_pollfds[i].fd = fd;
     m_receive_pollfds[i].events = POLLIN;
   }
-  wb::KeyPair keypair{};
-  if(m_options.encryption_key.has_value()){
-    keypair= wb::read_keypair_from_file(m_options.encryption_key.value());
+  wb::KeyPairTxRx keypair{};
+  if(m_options.secure_keypair.has_value()){
+    keypair= m_options.secure_keypair.value();
   }else{
-    keypair=wb::generate_keypair_deterministic(true);
+    keypair=wb::generate_keypair_from_bind_phrase();
   }
-  m_encryptor=std::make_unique<wb::Encryptor>(keypair);
-  m_decryptor=std::make_unique<wb::Decryptor>(keypair);
+  m_encryptor=std::make_unique<wb::Encryptor>(keypair.get_tx_key(!m_options.use_gnd_identifier));
+  m_decryptor=std::make_unique<wb::Decryptor>(keypair.get_rx_key(!m_options.use_gnd_identifier));
   m_encryptor->makeNewSessionKey(m_tx_sess_key_packet.sessionKeyNonce,m_tx_sess_key_packet.sessionKeyData);
   // next session key in delta ms if packets are being fed
   m_session_key_next_announce_ts = std::chrono::steady_clock::now();
@@ -750,6 +750,6 @@ void WBTxRx::recalculate_pollution_perc() {
 }
 
 std::string WBTxRx::options_to_string(const std::vector<std::string>& wifi_cards,const WBTxRx::Options& options) {
-  return fmt::format("Id:{} Cards:{} KeyPair:{} ",options.use_gnd_identifier ? "Ground":"Air",StringHelper::string_vec_as_string(wifi_cards),
-                     options.encryption_key.value_or("DEFAULT_SEED"));
+  return fmt::format("Id:{} Cards:{} Key:{} ",options.use_gnd_identifier ? "Ground":"Air",StringHelper::string_vec_as_string(wifi_cards),
+                     options.secure_keypair.has_value() ? "Custom" : "Default(openhd)");
 }

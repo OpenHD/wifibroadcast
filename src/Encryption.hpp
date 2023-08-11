@@ -26,47 +26,52 @@ static constexpr auto ENCRYPTION_ADDITIONAL_VALIDATION_DATA=crypto_aead_chacha20
 
 namespace wb{
 
-// A wb key consists of a public and private key
-struct KeyPair {
+// A wb key consists of a public and secret key
+struct Key {
   std::array<uint8_t,crypto_box_PUBLICKEYBYTES> public_key;
   std::array<uint8_t,crypto_box_SECRETKEYBYTES> secret_key;
 };
 
+// A wb keypair are 2 keys, one for transmitting, one for receiving
+// (Since both ground and air unit talk bidirectional)
+// We use a different key for the down-link / uplink, respective
 struct KeyPairTxRx {
-  // NOTE: The key itself for drone exists of drone.secret and ground.public
-  KeyPair drone;
-  KeyPair ground;
-  // NOTE the air key consists of key1.sec and key2.pub and vice versa
-  KeyPair get_keypair_air(){
-    return KeyPair{drone.secret_key,ground.public_key};
+  Key key_1;
+  Key key_2;
+  Key get_tx_key(bool is_air){
+      return is_air ? key_1 : key_2;
   }
-  KeyPair get_keypair_ground(){
-    return KeyPair{ground.secret_key,drone.public_key};
+  Key get_rx_key(bool is_air){
+      return is_air ? key_2 : key_1;
   }
 };
 
 // Generates a new keypair. Non-deterministic, 100% secure.
-static KeyPairTxRx generate_keypair(){
+static KeyPairTxRx generate_keypair_random(){
   KeyPairTxRx ret{};
-  crypto_box_keypair(ret.drone.public_key.data(), ret.drone.secret_key.data());
-  crypto_box_keypair(ret.ground.public_key.data(), ret.ground.secret_key.data());
+  crypto_box_keypair(ret.key_1.public_key.data(), ret.key_1.secret_key.data());
+  crypto_box_keypair(ret.key_2.public_key.data(), ret.key_2.secret_key.data());
   return ret;
 }
-static KeyPair generate_keypair_deterministic(bool is_air){
-  KeyPair ret{};
+
+// Obsolete
+static Key generate_keypair_deterministic(bool is_air){
+  Key ret{};
   std::array<uint8_t , crypto_box_SEEDBYTES> seed1{0};
   std::array<uint8_t , crypto_box_SEEDBYTES> seed2{1};
   crypto_box_seed_keypair(ret.public_key.data(), ret.secret_key.data(),is_air ? seed1.data(): seed2.data());
   return ret;
 }
 
+// Salts generated once using https://www.random.org/cgi-bin/randbyte?nbytes=16&format=d
+// We want deterministic seed from a pw, and are only interested in making it impossible to reverse the process (even though the salt is plain text)
+static constexpr std::array<uint8_t,crypto_pwhash_SALTBYTES> OHD_SALT_AIR{192,189,216,102,56,153,154,92,228,26,49,209,157,7,128,207};
+static constexpr std::array<uint8_t,crypto_pwhash_SALTBYTES> OHD_SALT_GND{179,30,150,20,17,200,225,82,48,64,18,130,89,62,83,234};
+static constexpr auto OHD_DEFAULT_TX_RX_KEY_FILENAME="txrx.key";
+
 // See https://libsodium.gitbook.io/doc/password_hashing
 static  std::array<uint8_t , crypto_box_SEEDBYTES> create_seed_from_password(const std::string& pw,bool use_salt_air){
-  // Salts generated once using https://www.random.org/cgi-bin/randbyte?nbytes=16&format=d
-  // We want deterministic seed from a pw, and are only interested in making it impossible to reverse the process (even though the seed is known)
-  std::array<uint8_t,crypto_pwhash_SALTBYTES> salt_air{192,189,216,102,56,153,154,92,228,26,49,209,157,7,128,207};
-  std::array<uint8_t,crypto_pwhash_SALTBYTES> salt_gnd{179,30,150,20,17,200,225,82,48,64,18,130,89,62,83,234};
-  const auto salt = use_salt_air ? salt_air : salt_gnd;
+  const auto salt = use_salt_air ? OHD_SALT_AIR : OHD_SALT_GND;
   std::array<uint8_t , crypto_box_SEEDBYTES> key{};
   if (crypto_pwhash(key.data(), key.size(), pw.c_str(), pw.length(), salt.data(),
        crypto_pwhash_OPSLIMIT_INTERACTIVE, crypto_pwhash_MEMLIMIT_INTERACTIVE,
@@ -78,57 +83,45 @@ static  std::array<uint8_t , crypto_box_SEEDBYTES> create_seed_from_password(con
   return key;
 }
 
-static KeyPairTxRx generate_keypair_from_bind_phrase(const std::string& bind_phrase=""){
+// We always use the same bind phrase by default
+static constexpr auto DEFAULT_BIND_PHRASE="openhd";
+static KeyPairTxRx generate_keypair_from_bind_phrase(const std::string& bind_phrase=DEFAULT_BIND_PHRASE){
   const auto seed_air= create_seed_from_password(bind_phrase, true);
   const auto seed_gnd= create_seed_from_password(bind_phrase, false);
   KeyPairTxRx ret{};
-  crypto_box_seed_keypair(ret.drone.public_key.data(), ret.drone.secret_key.data(),seed_air.data());
-  crypto_box_seed_keypair(ret.ground.public_key.data(), ret.ground.secret_key.data(),seed_gnd.data());
+  crypto_box_seed_keypair(ret.key_1.public_key.data(), ret.key_1.secret_key.data(),seed_air.data());
+  crypto_box_seed_keypair(ret.key_2.public_key.data(), ret.key_2.secret_key.data(),seed_gnd.data());
   return ret;
 }
 
-static int write_keypair_to_file(const KeyPair& keypair,const std::string& filename){
+static int write_keypair_to_file(const KeyPairTxRx& keypair_txrx,const std::string& filename){
   FILE *fp;
   if ((fp = fopen(filename.c_str(), "w")) == nullptr) {
     std::cerr<<"Unable to save "<<filename<<std::endl;
+    assert(false);
     return 1;
   }
-  fwrite(keypair.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp);
-  fwrite(keypair.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp);
+  assert(fwrite(keypair_txrx.key_1.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp)==1);
+  assert(fwrite(keypair_txrx.key_1.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp)==1);
+  assert(fwrite(keypair_txrx.key_2.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp)==1);
+  assert(fwrite(keypair_txrx.key_2.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp)==1);
   fclose(fp);
   return 0;
 }
 
-static KeyPair read_keypair_from_file(const std::string& filename){
-  KeyPair ret{};
+static KeyPairTxRx read_keypair_from_file(const std::string& filename){
+  KeyPairTxRx ret{};
   FILE *fp;
   if ((fp = fopen(filename.c_str(), "r")) == nullptr) {
-    throw std::runtime_error(fmt::format("Unable to open {}: {}", filename.c_str(), strerror(errno)));
+    std::cerr<<fmt::format("Unable to open {}: {}", filename.c_str(), strerror(errno))<<std::endl;
+    assert(false);
   }
-  if (fread(ret.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp) != 1) {
-    fclose(fp);
-    throw std::runtime_error(fmt::format("Unable to read secret key: {}", strerror(errno)));
-  }
-  if (fread(ret.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp) != 1) {
-    fclose(fp);
-    throw std::runtime_error(fmt::format("Unable to read public key: {}", strerror(errno)));
-  }
+  assert(fread(ret.key_1.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp)==1);
+  assert(fread(ret.key_1.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp)==1);
+  assert(fread(ret.key_2.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp)==1);
+  assert(fread(ret.key_2.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp)==1);
   fclose(fp);
   return ret;
-}
-
-static int write_to_file(const KeyPairTxRx& data){
-  if(!write_keypair_to_file(
-          KeyPair{data.drone.secret_key,data.ground.public_key},"drone.key")){
-    return 1;
-  }
-  fprintf(stderr, "Drone keypair (drone sec + gs pub) saved to drone.key\n");
-  if(!write_keypair_to_file(
-          KeyPair{data.ground.secret_key,data.drone.public_key},"gs.key")){
-    return 1;
-  }
-  fprintf(stderr, "GS keypair (gs sec + drone pub) saved to gs.key\n");
-  return 0;
 }
 
 
@@ -148,12 +141,12 @@ class Encryptor {
  public:
   /**
    *
-   * @param keypair encryption key, otherwise enable a default deterministic encryption key by using std::nullopt
+   * @param key1 encryption key, otherwise enable a default deterministic encryption key by using std::nullopt
    * @param DISABLE_ENCRYPTION_FOR_PERFORMANCE only validate, do not encrypt (less CPU usage)
    */
-  explicit Encryptor(wb::KeyPair keypair)
-      : tx_secretkey(keypair.secret_key),
-        rx_publickey(keypair.public_key){
+  explicit Encryptor(wb::Key key1)
+      : tx_secretkey(key1.secret_key),
+        rx_publickey(key1.public_key){
   }
   /**
    * Creates a new session key, simply put, the data we can send publicly
@@ -223,8 +216,8 @@ class Decryptor {
  public:
   // enable a default deterministic encryption key by using std::nullopt
   // else, pass path to file with encryption keys
-  explicit Decryptor(wb::KeyPair keypair)
-      :rx_secretkey(keypair.secret_key),tx_publickey(keypair.public_key){
+  explicit Decryptor(wb::Key key1)
+      :rx_secretkey(key1.secret_key),tx_publickey(key1.public_key){
     memset(session_key.data(), 0, sizeof(session_key));
   }
   static constexpr auto SESSION_VALID_NEW=0;
@@ -248,11 +241,11 @@ class Decryptor {
       return SESSION_NOT_VALID;
     }
     if (memcmp(session_key.data(), new_session_key.data(), sizeof(session_key)) != 0) {
-      // this is NOT an error, the same session key is sent multiple times !
       wifibroadcast::log::get_default()->info("Decryptor-New session detected");
       session_key = new_session_key;
       return SESSION_VALID_NEW;
     }
+    // this is NOT an error, the same session key is sent multiple times !
     return SESSION_VALID_NOT_NEW;
   }
   /**

@@ -23,7 +23,7 @@
  * Generates a new keypair and saves it to file for later use.
  */
 int main(void) {
-  auto keypair=wb::generate_keypair();
+  auto keypair= wb::generate_keypair_random();
   //auto keypair=wb::generate_keypair_from_bind_phrase("openhd");
-  return wb::write_to_file(keypair);
+  return wb::write_keypair_to_file(keypair,"txrx.key");
 }

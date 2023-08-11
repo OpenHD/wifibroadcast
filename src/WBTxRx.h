@@ -53,11 +53,10 @@
 class WBTxRx {
  public:
   struct Options{
-    // file for encryptor
-    // make optional for ease of use - with no keypair given the default "seed" is used
-    std::optional<std::string> encryption_key = std::nullopt;
-    // on the rx pcap fd, set direction PCAP_D_IN (aka only packets received by the card) - doesn't work on AR9271
-    bool set_direction= true;
+    // Bidirectional, so we need 2 keys
+    std::optional<wb::KeyPairTxRx> secure_keypair=std::nullopt;
+    // on the rx pcap rx fd, set direction PCAP_D_IN (aka only packets received by the card) - doesn't work on AR9271
+    bool pcap_rx_set_direction = true;
     // thy spam the console, but usefully for debugging
     // log all received packets (regardless where they are from)
     bool log_all_received_packets= false;

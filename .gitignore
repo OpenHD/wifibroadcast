@@ -12,7 +12,7 @@ wfb_tx
 unit_test
 benchmark
 gs.key
-drone.key
+key_1.key
 wfb_keygen
 udp_generator_validator
 socket_helper_test

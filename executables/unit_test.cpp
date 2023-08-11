@@ -110,23 +110,14 @@ static void test_fec_stream_random_bs_fs_overhead_dropped(){
 // Test encryption+packet validation and packet validation only
 static void test_encrypt_decrypt_validate(const bool use_key_from_file,bool message_signing_only) {
   std::cout << "Using generated keypair (default seed otherwise):" << (use_key_from_file ? "y" : "n") << "\n";
-  //const std::string filename_gs="gs.key";
-  //const std::string filename_drone="drone.key";
-  const std::string filename_gs="../example_keys/gs.key";
-  const std::string filename_drone="../example_keys/drone.key";
-  wb::KeyPair encKey{};
-  wb::KeyPair decKey{};
+  const std::string KEY_FILENAME="../example_key/txrx.key";
+  wb::KeyPairTxRx keyPairTxRx{};
   if(use_key_from_file){
-    encKey=wb::read_keypair_from_file(filename_gs);
-    decKey=wb::read_keypair_from_file(filename_gs);
+    keyPairTxRx=wb::read_keypair_from_file(KEY_FILENAME);
   }else{
-    /*encKey=wb::generate_keypair_deterministic(false);
-    decKey=wb::generate_keypair_deterministic(false);*/
     const auto before=std::chrono::steady_clock::now();
-    auto tmp=wb::generate_keypair_from_bind_phrase("openhd");
+    keyPairTxRx=wb::generate_keypair_from_bind_phrase("openhd");
     std::cout<<"Generating keypair from bind phrase took:"<<MyTimeHelper::R(std::chrono::steady_clock::now()-before)<<std::endl;
-    encKey=tmp.drone;
-    decKey=tmp.drone;
   }
   if(message_signing_only){
     std::cout<<"Testing message signing\n";
@@ -134,9 +125,9 @@ static void test_encrypt_decrypt_validate(const bool use_key_from_file,bool mess
     std::cout<<"Testing encryption & signing\n";
   }
 
-  wb::Encryptor encryptor{encKey};
+  wb::Encryptor encryptor{keyPairTxRx.get_tx_key(true)};// We send from air unit
   encryptor.set_encryption_enabled(!message_signing_only);
-  wb::Decryptor decryptor{decKey};
+  wb::Decryptor decryptor{keyPairTxRx.get_rx_key(false)}; // To the ground unit
   decryptor.set_encryption_enabled(!message_signing_only);
   struct SessionStuff{
     std::array<uint8_t, crypto_box_NONCEBYTES> sessionKeyNonce{};  // random data

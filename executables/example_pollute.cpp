@@ -45,7 +45,7 @@ int main(int argc, char *const *argv) {
   cards.push_back(tmp_card);
   WBTxRx::Options options_txrx{};
   options_txrx.rtl8812au_rssi_fixup= true;
-  options_txrx.set_direction= true;
+  options_txrx.pcap_rx_set_direction = true;
   options_txrx.enable_non_openhd_mode= true;
 
   std::shared_ptr<WBTxRx> txrx=std::make_shared<WBTxRx>(cards,options_txrx);

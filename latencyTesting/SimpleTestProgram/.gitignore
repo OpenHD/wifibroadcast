@@ -8,7 +8,7 @@ env/
 _trial_temp/
 test
 gs.key
-drone.key
+key_1.key
 wfb_keygen
 telemetry/conf/site.cfg
 telemetry/conf/local.cfg
