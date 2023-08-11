@@ -62,11 +62,13 @@ static KeyPair generate_keypair_deterministic(bool is_air){
 
 // See https://libsodium.gitbook.io/doc/password_hashing
 static  std::array<uint8_t , crypto_box_SEEDBYTES> create_seed_from_password(const std::string& pw,bool use_salt_air){
-  std::array<uint8_t,crypto_pwhash_SALTBYTES> salt_air{0};
-  std::array<uint8_t,crypto_pwhash_SALTBYTES> salt_gnd{1};
+  // Salts generated once using https://www.random.org/cgi-bin/randbyte?nbytes=16&format=d
+  // We want deterministic seed from a pw, and are only interested in making it impossible to reverse the process (even though the seed is known)
+  std::array<uint8_t,crypto_pwhash_SALTBYTES> salt_air{192,189,216,102,56,153,154,92,228,26,49,209,157,7,128,207};
+  std::array<uint8_t,crypto_pwhash_SALTBYTES> salt_gnd{179,30,150,20,17,200,225,82,48,64,18,130,89,62,83,234};
   const auto salt = use_salt_air ? salt_air : salt_gnd;
   std::array<uint8_t , crypto_box_SEEDBYTES> key{};
-  if (crypto_pwhash(key.data(), sizeof key, pw.c_str(), pw.length(), salt.data(),
+  if (crypto_pwhash(key.data(), key.size(), pw.c_str(), pw.length(), salt.data(),
        crypto_pwhash_OPSLIMIT_INTERACTIVE, crypto_pwhash_MEMLIMIT_INTERACTIVE,
        crypto_pwhash_ALG_DEFAULT) != 0) {
     std::cerr<<"ERROR: cannot create_seed_from_password"<<std::endl;
