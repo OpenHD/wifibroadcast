@@ -20,7 +20,7 @@
 #include "../src/Encryption.hpp"
 
 /**
- * Generates a new keypair and saves it to file for later use.
+ * Generates a new tx rx keypair and saves it to file for later use.
  */
 int main(int argc, char *const *argv) {
   int opt;
@@ -34,7 +34,7 @@ int main(int argc, char *const *argv) {
       default: /* '?' */
       show_usage:
         fprintf(stderr,
-                "wfb-keygen [-b bind_phrase], if no bind phrase is specified, random keys are generated (non-deterministic)\n",
+                "wfb-keygen [-b bind_phrase,deterministic], if no bind phrase is specified, random keys are generated (non-deterministic)\n",
                 argv[0]);
         exit(1);
     }
