@@ -1,1 +1,1 @@
-Example air / ground keys, used by the unit test
+Example tx / rx key, generated from the default openhd bind phrase "openhd"
