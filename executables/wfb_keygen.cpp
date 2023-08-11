@@ -24,5 +24,6 @@
  */
 int main(void) {
   auto keypair=wb::generate_keypair();
+  //auto keypair=wb::generate_keypair_from_bind_phrase("openhd");
   return wb::write_to_file(keypair);
 }

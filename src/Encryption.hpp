@@ -85,7 +85,6 @@ static KeyPairTxRx generate_keypair_from_bind_phrase(const std::string& bind_phr
   return ret;
 }
 
-
 static int write_keypair_to_file(const KeyPair& keypair,const std::string& filename){
   FILE *fp;
   if ((fp = fopen(filename.c_str(), "w")) == nullptr) {
