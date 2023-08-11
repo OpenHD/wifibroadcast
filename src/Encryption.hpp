@@ -243,6 +243,7 @@ class Decryptor {
     if (memcmp(session_key.data(), new_session_key.data(), sizeof(session_key)) != 0) {
       wifibroadcast::log::get_default()->info("Decryptor-New session detected");
       session_key = new_session_key;
+      m_has_valid_session= true;
       return SESSION_VALID_NEW;
     }
     // this is NOT an error, the same session key is sent multiple times !
@@ -298,12 +299,17 @@ class Decryptor {
   void set_encryption_enabled(bool encryption_enabled){
     m_encrypt_data =encryption_enabled;
   }
+  // Set to true as soon as a valid session has been detected
+  bool has_valid_session(){
+    return m_has_valid_session;
+  }
  private:
   // use this one if you are worried about CPU usage when using encryption
   bool m_encrypt_data= true;
   const std::array<uint8_t, crypto_box_SECRETKEYBYTES> rx_secretkey{};
   const std::array<uint8_t, crypto_box_PUBLICKEYBYTES> tx_publickey{};
   std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES> session_key{};
+  bool m_has_valid_session= false;
 };
 
 } // namespace wb end
