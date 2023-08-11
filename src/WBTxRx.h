@@ -56,8 +56,6 @@ class WBTxRx {
     // file for encryptor
     // make optional for ease of use - with no keypair given the default "seed" is used
     std::optional<std::string> encryption_key = std::nullopt;
-    // dirty, rssi on rtl8812au is "bugged", this discards the first rssi value reported by the card.
-    bool rtl8812au_rssi_fixup=false;
     // on the rx pcap fd, set direction PCAP_D_IN (aka only packets received by the card) - doesn't work on AR9271
     bool set_direction= true;
     // thy spam the console, but usefully for debugging
