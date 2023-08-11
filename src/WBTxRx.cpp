@@ -47,7 +47,9 @@ WBTxRx::WBTxRx(std::vector<WifiCard> wifi_cards1,Options options1)
     pcapTxRx.tx=wifibroadcast::pcap_helper::open_pcap_tx(wifi_card.name);
     if(m_options.pcap_rx_set_direction){
       const auto ret=pcap_setdirection(pcapTxRx.rx, PCAP_D_IN);
-      m_console->debug("pcap_setdirection() returned {}",ret);
+      if(ret!=0){
+        m_console->debug("pcap_setdirection() returned {}",ret);
+      }
     }
     m_pcap_handles.push_back(pcapTxRx);
     auto fd = pcap_get_selectable_fd(pcapTxRx.rx);
