@@ -721,26 +721,6 @@ bool WBTxRx::get_card_has_disconnected(int card_idx) {
   }
   return m_card_is_disconnected[card_idx];
 }
-std::string WBTxRx::tx_stats_to_string(const WBTxRx::TxStats& data) {
-  return fmt::format("TxStats[injected packets:{} bytes:{} tx errors:{}:{} pps:{} bps:{}:{}]",
-                     data.n_injected_packets,data.n_injected_bytes_including_overhead,
-                     data.count_tx_injections_error_hint,data.count_tx_errors,
-                     data.curr_packets_per_second,
-                     StringHelper::bitrate_readable(data.curr_bits_per_second_excluding_overhead),
-                     StringHelper::bitrate_readable(data.curr_bits_per_second_including_overhead));
-}
-std::string WBTxRx::rx_stats_to_string(const WBTxRx::RxStats& data) {
-  return fmt::format("RxStats[packets any:{} session:{} valid:{} Loss:{}% pps:{} bps:{} foreign:{}%]",
-                         data.count_p_any,data.n_received_valid_session_key_packets,data.count_p_valid,
-                         data.curr_lowest_packet_loss,data.curr_packets_per_second,data.curr_bits_per_second,
-                     data.curr_link_pollution_perc);
-}
-std::string WBTxRx::rx_stats_per_card_to_string(
-    const WBTxRx::RxStatsPerCard& data) {
-  return fmt::format("Card{}[packets total:{} valid:{}, loss:{}% RSSI:{}/{},{}]",data.card_index,
-                     data.count_p_any,data.count_p_valid,data.curr_packet_loss,
-                     (int)data.card_dbm,data.antenna1_dbm,data.antenna2_dbm);
-}
 
 void WBTxRx::tx_reset_stats() {
   m_tx_stats=TxStats{};
@@ -769,6 +749,26 @@ void WBTxRx::recalculate_pollution_perc() {
   m_pollution_openhd_rx_packets=0;
 }
 
+std::string WBTxRx::tx_stats_to_string(const WBTxRx::TxStats& data) {
+  return fmt::format("TxStats[injected packets:{} bytes:{} tx errors:{}:{} pps:{} bps:{}:{}]",
+                     data.n_injected_packets,data.n_injected_bytes_including_overhead,
+                     data.count_tx_injections_error_hint,data.count_tx_errors,
+                     data.curr_packets_per_second,
+                     StringHelper::bitrate_readable(data.curr_bits_per_second_excluding_overhead),
+                     StringHelper::bitrate_readable(data.curr_bits_per_second_including_overhead));
+}
+std::string WBTxRx::rx_stats_to_string(const WBTxRx::RxStats& data) {
+  return fmt::format("RxStats[packets any:{} session:{} valid:{} Loss:{}% pps:{} bps:{} foreign:{}% likely_key_mismatch:{}]",
+                     data.count_p_any,data.n_received_valid_session_key_packets,data.count_p_valid,
+                     data.curr_lowest_packet_loss,data.curr_packets_per_second,data.curr_bits_per_second,
+                     data.curr_link_pollution_perc,data.likely_mismatching_encryption_key);
+}
+std::string WBTxRx::rx_stats_per_card_to_string(
+    const WBTxRx::RxStatsPerCard& data) {
+  return fmt::format("Card{}[packets total:{} valid:{}, loss:{}% RSSI:{}/{},{}]",data.card_index,
+                     data.count_p_any,data.count_p_valid,data.curr_packet_loss,
+                     (int)data.card_dbm,data.antenna1_dbm,data.antenna2_dbm);
+}
 std::string WBTxRx::options_to_string(const std::vector<std::string>& wifi_cards,const WBTxRx::Options& options) {
   return fmt::format("Id:{} Cards:{} Key:{} ",options.use_gnd_identifier ? "Ground":"Air",StringHelper::string_vec_as_string(wifi_cards),
                      options.secure_keypair.has_value() ? "Custom" : "Default(openhd)");
