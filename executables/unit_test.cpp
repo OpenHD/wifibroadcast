@@ -127,7 +127,7 @@ static void test_encrypt_decrypt_validate(const bool use_key_from_file,bool mess
   wb::Decryptor decryptor{keyPairTxRx.get_rx_key(false)}; // To the ground unit
   decryptor.set_encryption_enabled(!message_signing_only);
   struct SessionStuff{
-    std::array<uint8_t, crypto_box_NONCEBYTES> sessionKeyNonce{};  // random data
+    std::array<uint8_t, crypto_box_NONCEBYTES> sessionKeyNonce{};  // filled with random data
     std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES + crypto_box_MACBYTES> sessionKeyData{};
   };
   SessionStuff sessionKeyPacket;
