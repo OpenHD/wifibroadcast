@@ -60,8 +60,8 @@ WBTxRx::WBTxRx(std::vector<WifiCard> wifi_cards1,Options options1)
   }else{
     keypair=wb::generate_keypair_deterministic(true);
   }
-  //m_encryptor=std::make_unique<Encryptor>(m_options.encryption_key);
-  //m_decryptor=std::make_unique<Decryptor>(m_options.encryption_key);
+  m_encryptor=std::make_unique<wb::Encryptor>(keypair);
+  m_decryptor=std::make_unique<wb::Decryptor>(keypair);
   m_encryptor->makeNewSessionKey(m_tx_sess_key_packet.sessionKeyNonce,m_tx_sess_key_packet.sessionKeyData);
   // next session key in delta ms if packets are being fed
   m_session_key_next_announce_ts = std::chrono::steady_clock::now();
