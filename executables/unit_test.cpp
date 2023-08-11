@@ -109,7 +109,9 @@ static void test_fec_stream_random_bs_fs_overhead_dropped(){
 
 // Test encryption+packet validation and packet validation only
 static void test_encrypt_decrypt_validate(const bool use_key_from_file,bool message_signing_only) {
-  std::cout << "Using generated keypair (default seed otherwise):" << (use_key_from_file ? "y" : "n") << "\n";
+  const std::string TEST_TYPE=message_signing_only ?  "Sign" : "Encrypt&Sign";
+  const std::string TEST_KEY_TYPE=use_key_from_file ? "key from file" : "default key";
+  fmt::print("Testing {} with {}\n",TEST_TYPE,TEST_KEY_TYPE);
   const std::string KEY_FILENAME="../example_key/txrx.key";
   wb::KeyPairTxRx keyPairTxRx{};
   if(use_key_from_file){
@@ -118,11 +120,6 @@ static void test_encrypt_decrypt_validate(const bool use_key_from_file,bool mess
     const auto before=std::chrono::steady_clock::now();
     keyPairTxRx=wb::generate_keypair_from_bind_phrase("openhd");
     std::cout<<"Generating keypair from bind phrase took:"<<MyTimeHelper::R(std::chrono::steady_clock::now()-before)<<std::endl;
-  }
-  if(message_signing_only){
-    std::cout<<"Testing message signing\n";
-  }else{
-    std::cout<<"Testing encryption & signing\n";
   }
 
   wb::Encryptor encryptor{keyPairTxRx.get_tx_key(true)};// We send from air unit
@@ -177,7 +174,7 @@ static void test_encrypt_decrypt_validate(const bool use_key_from_file,bool mess
             nonce, enrypted_wrong_sign->data(), enrypted_wrong_sign->size());
         assert(decrypted== nullptr);
   }
-  std::cout << "encryption test passed\n";
+  fmt::print("Test {} with {} passed\n",TEST_TYPE,TEST_KEY_TYPE);
 }
 
 
