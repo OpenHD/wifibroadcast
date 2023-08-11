@@ -118,7 +118,7 @@ static void test_encrypt_decrypt_validate(const bool use_key_from_file,bool mess
   wb::KeyPair decKey{};
   if(use_key_from_file){
     encKey=wb::read_keypair_from_file(filename_gs);
-    decKey=wb::read_keypair_from_file(filename_drone);
+    decKey=wb::read_keypair_from_file(filename_gs);
   }else{
     /*encKey=wb::generate_keypair_deterministic(false);
     decKey=wb::generate_keypair_deterministic(false);*/
