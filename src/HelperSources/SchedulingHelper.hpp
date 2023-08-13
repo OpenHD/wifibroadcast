@@ -13,6 +13,7 @@
 #include <string>
 
 #include "../wifibroadcast_spdlog.h"
+#include <spdlog/spdlog.h>
 
 namespace SchedulingHelper {
 static void printCurrentThreadPriority(const std::string& name) {

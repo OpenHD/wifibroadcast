@@ -21,6 +21,7 @@
 #include <thread>
 
 #include "../wifibroadcast_spdlog.h"
+#include <spdlog/spdlog.h>
 #include "Helper.hpp"
 #include "TimeHelper.hpp"
 
