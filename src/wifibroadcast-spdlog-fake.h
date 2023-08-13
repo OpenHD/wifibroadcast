@@ -29,7 +29,7 @@ class logger{
   template<typename... Args>
   void debug(const std::string& unused1, Args &&...args){
 
-  };
+  }
 
   template<typename... Args>
   void warn(const std::string& unused1, Args &&...args){
@@ -47,7 +47,6 @@ class logger{
   };
 
 };
-
 
 }
 
