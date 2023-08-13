@@ -13,7 +13,7 @@
 #include <thread>
 #include <utility>
 
-#include "Encryption.hpp"
+#include "Encryption.h"
 #include "Ieee80211Header.hpp"
 #include "NonceSeqNrHelper.h"
 #include "RSSIAccumulator.hpp"

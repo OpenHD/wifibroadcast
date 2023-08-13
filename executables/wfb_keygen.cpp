@@ -17,8 +17,9 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "../src/Encryption.hpp"
 #include <getopt.h>
+
+#include "../src/Encryption.h"
 
 /**
  * Generates a new tx rx keypair and saves it to file for later use.

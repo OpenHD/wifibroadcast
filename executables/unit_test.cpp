@@ -27,10 +27,10 @@
 #include "../src/FECEnabled.h"
 //#include "../src/FECEnabled.hpp"
 
+#include "../src/Encryption.h"
 #include "../src/HelperSources/Helper.hpp"
-#include "../src/Encryption.hpp"
-#include "../src/wifibroadcast-spdlog.h"
 #include "../src/Ieee80211Header.hpp"
+#include "../src/wifibroadcast-spdlog.h"
 
 // Simple unit testing for the FEC lib that doesn't require wifi cards
 

@@ -16,21 +16,24 @@
  *   with this program; if not, write to the Free Software Foundation, Inc.,
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#include "../src/HelperSources/SchedulingHelper.hpp"
-#include "../src/FECEnabled.h"
-#include "../src/Encryption.hpp"
-#include "../src/HelperSources/RandomBufferPot.hpp"
 #include "../src/HelperSources/Benchmark.hpp"
-#include <cassert>
-#include <cstdio>
-#include <cinttypes>
-#include <unistd.h>
+
 #include <poll.h>
-#include <memory>
-#include <string>
+#include <unistd.h>
+
+#include <cassert>
 #include <chrono>
-#include <sstream>
+#include <cinttypes>
+#include <cstdio>
 #include <list>
+#include <memory>
+#include <sstream>
+#include <string>
+
+#include "../src/Encryption.h"
+#include "../src/FECEnabled.h"
+#include "../src/HelperSources/RandomBufferPot.hpp"
+#include "../src/HelperSources/SchedulingHelper.hpp"
 
 // Test the FEC encoding / decoding and Encryption / Decryption performance (throughput) of this system
 // Gives a hint on max possible FEC K target(s) for this platform
