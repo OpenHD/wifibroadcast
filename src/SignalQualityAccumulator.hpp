@@ -17,7 +17,9 @@ class SignalQualityAccumulator{
  public:
   void add_signal_quality(int signal_quality_perc){
     if(signal_quality_perc>100 || signal_quality_perc<0){
-      wifibroadcast::log::get_default()->debug("Invalid signal quality {}",signal_quality_perc);
+      if(m_debug_invalid_signal_quality){
+        wifibroadcast::log::get_default()->debug("Invalid signal quality {}",signal_quality_perc);
+      }
       return ;
     }
     m_acc.add(signal_quality_perc);
@@ -37,10 +39,14 @@ class SignalQualityAccumulator{
   int8_t get_current_signal_quality()const{
     return m_curr_signal_quality;
   }
+  void set_debug_invalid_signal_quality(bool enable){
+    m_debug_invalid_signal_quality=enable;
+  }
  private:
   BaseAvgCalculator<int> m_acc;
   // -1 if invalid, [0,100] otherwise
   int8_t m_curr_signal_quality=-1;
+  bool m_debug_invalid_signal_quality= false;
 };
 
 #endif  // WIFIBROADCAST_SIGNALQUALITYACCUMULATOR_HPP

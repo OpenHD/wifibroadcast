@@ -37,6 +37,7 @@ WBTxRx::WBTxRx(std::vector<WifiCard> wifi_cards1,Options options1)
     tmp->card_rssi.set_debug_invalid_rssi(0,m_options.debug_rssi>=1);
     tmp->antenna1_rssi.set_debug_invalid_rssi(1,m_options.debug_rssi>=1);
     tmp->antenna2_rssi.set_debug_invalid_rssi(2,m_options.debug_rssi>=1);
+    tmp->signal_quality.set_debug_invalid_signal_quality(m_options.debug_rssi>=1);
     m_per_card_calc.push_back(tmp);
     m_card_is_disconnected[i]=false;
   }
