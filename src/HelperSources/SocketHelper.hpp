@@ -22,7 +22,7 @@
 
 #include "../wifibroadcast_spdlog.h"
 #include <spdlog/spdlog.h>
-#include "Helper.hpp"
+#include "StringHelper.hpp"
 #include "TimeHelper.hpp"
 
 namespace SocketHelper {
