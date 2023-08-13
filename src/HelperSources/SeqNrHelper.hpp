@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "../wifibroadcast_spdlog.h"
+#include <spdlog/spdlog.h>
 
 namespace seq_nr{
 
