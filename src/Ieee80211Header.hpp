@@ -2,20 +2,9 @@
 #define __WIFIBROADCAST_IEEE80211_HEADER_HPP__
 
 #include <endian.h>
-#include <fcntl.h>
-#include <getopt.h>
-#include <resolv.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <utime.h>
 
 #include <array>
 #include <cassert>
-#include <cerrno>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>

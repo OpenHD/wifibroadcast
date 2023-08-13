@@ -5,6 +5,7 @@
 #ifndef WIFIBROADCAST_WBTXRX_H
 #define WIFIBROADCAST_WBTXRX_H
 
+#include <pcap/pcap.h>
 #include <sys/poll.h>
 
 #include <atomic>

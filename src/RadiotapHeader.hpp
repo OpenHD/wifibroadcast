@@ -8,13 +8,6 @@ extern "C" {
 };
 
 #include <endian.h>
-#include <fcntl.h>
-#include <getopt.h>
-#include <pcap.h>
-#include <resolv.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <utime.h>
 
 #include <cassert>
 #include <cerrno>
@@ -23,7 +16,6 @@ extern "C" {
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -160,6 +152,7 @@ static_assert(sizeof(RadiotapHeader) == RadiotapHeader::SIZE_BYTES, "ALWAYS TRUE
 static_assert(sizeof(RadiotapHeaderWithTxFlagsAndMCS) == RadiotapHeader::SIZE_BYTES, "ALWAYS TRUE");
 
 namespace RadiotapHelper {
+
 static std::string toStringRadiotapFlags(uint8_t flags) {
   std::stringstream ss;
   ss << "All IEEE80211_RADIOTAP flags: [";
