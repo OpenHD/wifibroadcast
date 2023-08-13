@@ -10,7 +10,7 @@
 //#include <spdlog/sinks/stdout_color_sinks.h>
 //#include <spdlog/spdlog.h>
 #include <spdlog/fwd.h>
-#include <mutex>
+#include <memory>
 
 namespace wifibroadcast::log{
 

@@ -11,6 +11,7 @@
 
 #include "HelperSources/StringHelper.hpp"
 #include "wifibroadcast_spdlog.h"
+#include <spdlog/spdlog.h>
 
 // Helper for dealing with the IEEE80211 header in wifibroadcast / openhd
 // Usefully references:

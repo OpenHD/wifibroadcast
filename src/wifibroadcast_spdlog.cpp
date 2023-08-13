@@ -3,7 +3,11 @@
 //
 
 #include "wifibroadcast_spdlog.h"
+
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
+#include <mutex>
 
 std::shared_ptr<spdlog::logger> wifibroadcast::log::create_or_get(
     const std::string& logger_name) {
