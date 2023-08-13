@@ -18,9 +18,10 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <memory>
 
-#include "FEC.hpp"
 #include "HelperSources/TimeHelper.hpp"
+#include "FEC.hpp"
 
 /**
  * Encoder and Decoder pair for FEC protected block / packet based data streaming.
