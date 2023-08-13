@@ -5,7 +5,9 @@
 #ifndef WIFIBROADCAST_SRC_WIFIBROADCAST_SPDLOG_H_
 #define WIFIBROADCAST_SRC_WIFIBROADCAST_SPDLOG_H_
 
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include "wifibroadcast-spdlog2.h"
+
+/*#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 #include <mutex>
 
@@ -28,5 +30,5 @@ static std::shared_ptr<spdlog::logger> get_default() {
   return create_or_get("wifibroadcast");
 }
 
-}
+}*/
 #endif  // WIFIBROADCAST_SRC_WIFIBROADCAST_SPDLOG_H_

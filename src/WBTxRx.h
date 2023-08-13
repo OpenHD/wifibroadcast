@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <map>
+#include <mutex>
 #include <thread>
 #include <utility>
 

@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <memory>
+#include <cmath>
 
 #include "../wifibroadcast-spdlog.h"
 #include "StringHelper.hpp"

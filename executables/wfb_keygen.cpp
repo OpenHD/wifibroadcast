@@ -18,6 +18,7 @@
  */
 
 #include "../src/Encryption.hpp"
+#include <getopt.h>
 
 /**
  * Generates a new tx rx keypair and saves it to file for later use.
