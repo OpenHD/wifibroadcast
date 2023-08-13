@@ -90,6 +90,14 @@ void FECEncoder::encode_block(
   }
 }
 
+RxBlock::RxBlock(const unsigned int maxNFragmentsPerBlock,
+                 const uint64_t blockIdx1)
+    :blockIdx(blockIdx1),
+      fragment_map(maxNFragmentsPerBlock,FRAGMENT_STATUS_UNAVAILABLE), //after creation of the RxBlock every f. is marked as unavailable
+      blockBuffer(maxNFragmentsPerBlock) {
+  assert(fragment_map.size() == blockBuffer.size());
+}
+
 bool RxBlock::hasFragment(const int fragment_idx) {
   assert(fragment_idx<fragment_map.size());
   return fragment_map[fragment_idx] == FRAGMENT_STATUS_AVAILABLE;
