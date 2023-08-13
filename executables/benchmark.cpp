@@ -34,8 +34,10 @@
 #include "../src/FECStream.h"
 #include "../src/HelperSources/RandomBufferPot.hpp"
 #include "../src/HelperSources/SchedulingHelper.hpp"
+#include "../src/external/fec/fec_base.h"
 
-// Test the FEC encoding / decoding and Encryption / Decryption performance (throughput) of this system
+// Test the FEC encoding / decoding and Encryption / Decryption performance
+// (throughput) of this system
 // Gives a hint on max possible FEC K target(s) for this platform
 // NOTE: Does not take WIFI card throughput into account
 

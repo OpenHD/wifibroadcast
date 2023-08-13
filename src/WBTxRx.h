@@ -22,7 +22,7 @@
 #include "SignalQualityAccumulator.hpp"
 #include "TimeHelper.hpp"
 #include "UINT16SeqNrHelper.hpp"
-#include "UINT64SeqNrHelper.h"
+#include "UINT64SeqNrHelper.hpp"
 
 /**
  * This class exists to provide a clean, working interface to create a
