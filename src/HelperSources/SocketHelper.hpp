@@ -136,7 +136,7 @@ class UDPForwarder {
     //saddr.sin_addr.s_addr = inet_addr(client_addr.c_str());
     inet_aton(client_addr.c_str(), (in_addr *) &saddr.sin_addr.s_addr);
     saddr.sin_port = htons((uint16_t) client_udp_port);
-    wifibroadcast::log::get_default()->info("UDPForwarder::configured for {} {}",client_addr,client_udp_port);
+    wifibroadcast::log::get_default()->debug("UDPForwarder::configured for {} {}",client_addr,client_udp_port);
   }
   UDPForwarder(const UDPForwarder &) = delete;
   UDPForwarder &operator=(const UDPForwarder &) = delete;
@@ -173,11 +173,11 @@ class UDPMultiForwarder {
     // check if we already forward data to this IP::Port tuple
     for (const auto &udpForwarder: udpForwarders) {
       if (udpForwarder->client_addr == client_addr && udpForwarder->client_udp_port == client_udp_port) {
-        wifibroadcast::log::get_default()->info("UDPMultiForwarder: already forwarding to: {}:{}",client_addr,client_udp_port);
+        wifibroadcast::log::get_default()->warn("UDPMultiForwarder: already forwarding to: {}:{}",client_addr,client_udp_port);
         return;
       }
     }
-    wifibroadcast::log::get_default()->info("UDPMultiForwarder: add forwarding to: {}:{}",client_addr,client_udp_port);
+    wifibroadcast::log::get_default()->debug("UDPMultiForwarder: add forwarding to: {}:{}",client_addr,client_udp_port);
     udpForwarders.emplace_back(std::make_unique<SocketHelper::UDPForwarder>(client_addr, client_udp_port));
   }
   /**
@@ -225,7 +225,7 @@ class UDPReceiver {
     if(m_wanted_recv_buff_size!=std::nullopt){
       increase_socket_recv_buff_size(mSocket,m_wanted_recv_buff_size.value());
     }
-    wifibroadcast::log::get_default()->info("UDPReceiver created with {}:{}",client_addr,client_udp_port);
+    wifibroadcast::log::get_default()->debug("UDPReceiver created with {}:{}",client_addr,client_udp_port);
   }
   ~UDPReceiver(){
     stopBackground();
