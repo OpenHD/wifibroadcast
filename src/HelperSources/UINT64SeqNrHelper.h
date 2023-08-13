@@ -16,7 +16,7 @@
 // UINT16SeqNrHelper for dealing with sequence number
 // (calculate packet loss and more)
 // Using a unique uint64_t nonce
-class UInt64SeqNrHelper {
+class UINT64SeqNrHelper {
  public:
   int16_t get_current_loss_percent(){
     return m_curr_loss_perc.load();

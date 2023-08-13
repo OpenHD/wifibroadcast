@@ -21,8 +21,8 @@
 #include "RadiotapHeader.hpp"
 #include "SignalQualityAccumulator.hpp"
 #include "TimeHelper.hpp"
-#include "UInt16SeqNrHelper.hpp"
-#include "UInt64SeqNrHelper.h"
+#include "UINT16SeqNrHelper.hpp"
+#include "UINT64SeqNrHelper.h"
 
 /**
  * This class exists to provide a clean, working interface to create a
@@ -302,7 +302,7 @@ class WBTxRx {
   UINT16SeqNrHelper m_seq_nr_helper_iee80211;
   // for calculating the loss and more per rx card (when multiple rx cards are used)
   struct PerCardCalculators{
-    UInt64SeqNrHelper seq_nr{};
+    UINT64SeqNrHelper seq_nr{};
     RSSIAccumulator card_rssi{};
     RSSIAccumulator antenna1_rssi{};
     RSSIAccumulator antenna2_rssi{};

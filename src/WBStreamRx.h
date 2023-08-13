@@ -11,7 +11,7 @@
 #include "HelperSources/Helper.hpp"
 #include "HelperSources/SequenceNumberDebugger.hpp"
 #include "HelperSources/TimeHelper.hpp"
-#include "HelperSources/UInt16SeqNrHelper.hpp"
+#include "HelperSources/UINT16SeqNrHelper.hpp"
 #include "SimpleStream.hpp"
 #include "WBTxRx.h"
 #include "wifibroadcast_spdlog.h"
