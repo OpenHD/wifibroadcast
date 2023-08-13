@@ -2,8 +2,8 @@
 // Created by consti10 on 13.08.23.
 //
 
-#ifndef WIFIBROADCAST_WIFIBROADCAST_SPDLOG2_H
-#define WIFIBROADCAST_WIFIBROADCAST_SPDLOG2_H
+#ifndef WIFIBROADCAST_WIFIBROADCAST_SPDLOG_FAKE_H
+#define WIFIBROADCAST_WIFIBROADCAST_SPDLOG_FAKE_H
 
 #include <memory>
 #include <string>
@@ -64,4 +64,4 @@ static std::shared_ptr<spdlog::logger> get_default() {
 }
 
 
-#endif  // WIFIBROADCAST_WIFIBROADCAST_SPDLOG2_H
+#endif  // WIFIBROADCAST_WIFIBROADCAST_SPDLOG_FAKE_H

@@ -5,7 +5,7 @@
 #ifndef WIFIBROADCAST_SRC_WIFIBROADCAST_SPDLOG_H_
 #define WIFIBROADCAST_SRC_WIFIBROADCAST_SPDLOG_H_
 
-#include "wifibroadcast-spdlog2.h"
+#include "wifibroadcast-spdlog-fake.h"
 
 /*#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
