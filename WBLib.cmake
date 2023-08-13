@@ -33,7 +33,6 @@ target_sources(wifibroadcast PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/src/RadiotapHeader.hpp
         ${CMAKE_CURRENT_LIST_DIR}/src/RSSIAccumulator.hpp
         ${CMAKE_CURRENT_LIST_DIR}/src/wifibroadcast_spdlog.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/src/wifibroadcast_spdlog_fake.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/Encryption.cpp
         )
 target_include_directories(wifibroadcast PUBLIC
