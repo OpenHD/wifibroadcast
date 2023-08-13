@@ -49,7 +49,12 @@ struct KeyPairTxRx {
 /**
  * Generates a new keypair. Non-deterministic, 100% secure.
  */
-static KeyPairTxRx generate_keypair_random();
+static KeyPairTxRx generate_keypair_random(){
+  KeyPairTxRx ret{};
+  crypto_box_keypair(ret.key_1.public_key.data(), ret.key_1.secret_key.data());
+  crypto_box_keypair(ret.key_2.public_key.data(), ret.key_2.secret_key.data());
+  return ret;
+}
 
 // Salts generated once using https://www.random.org/cgi-bin/randbyte?nbytes=16&format=d
 // We want deterministic seed from a pw, and are only interested in making it impossible to reverse the process (even though the salt is plain text)
@@ -61,7 +66,18 @@ static constexpr auto OHD_DEFAULT_TX_RX_KEY_FILENAME="txrx.key";
  * See https://libsodium.gitbook.io/doc/password_hashing
  * Deterministic seed from password, but hides password itself (non-reversible)
  */
-static  std::array<uint8_t , crypto_box_SEEDBYTES> create_seed_from_password(const std::string& pw,bool use_salt_air);
+static std::array<uint8_t , crypto_box_SEEDBYTES> create_seed_from_password(const std::string& pw,bool use_salt_air){
+  const auto salt = use_salt_air ? OHD_SALT_AIR : OHD_SALT_GND;
+  std::array<uint8_t , crypto_box_SEEDBYTES> key{};
+  if (crypto_pwhash(key.data(), key.size(), pw.c_str(), pw.length(), salt.data(),
+                    crypto_pwhash_OPSLIMIT_INTERACTIVE, crypto_pwhash_MEMLIMIT_INTERACTIVE,
+                    crypto_pwhash_ALG_DEFAULT) != 0) {
+      std::cerr<<"ERROR: cannot create_seed_from_password"<<std::endl;
+      assert(false);
+      // out of memory
+  }
+  return key;
+}
 
 // We always use the same bind phrase by default
 static constexpr auto DEFAULT_BIND_PHRASE="openhd";
@@ -69,17 +85,50 @@ static constexpr auto DEFAULT_BIND_PHRASE="openhd";
  * Generates 2 new (deterministic) tx rx keys, using the seed created from the pw.
  * @param bind_phrase the password / bind phrase
  */
-static KeyPairTxRx generate_keypair_from_bind_phrase(const std::string& bind_phrase=DEFAULT_BIND_PHRASE);
+static KeyPairTxRx generate_keypair_from_bind_phrase(const std::string& bind_phrase=DEFAULT_BIND_PHRASE){
+  const auto seed_air= create_seed_from_password(bind_phrase, true);
+  const auto seed_gnd= create_seed_from_password(bind_phrase, false);
+  KeyPairTxRx ret{};
+  crypto_box_seed_keypair(ret.key_1.public_key.data(), ret.key_1.secret_key.data(),seed_air.data());
+  crypto_box_seed_keypair(ret.key_2.public_key.data(), ret.key_2.secret_key.data(),seed_gnd.data());
+  return ret;
+}
 
 /**
  * Saves the KeyPairTxRx as a raw file
  */
-static int write_keypair_to_file(const KeyPairTxRx& keypair_txrx,const std::string& filename);
+static int write_keypair_to_file(const KeyPairTxRx& keypair_txrx,const std::string& filename){
+  FILE *fp;
+  if ((fp = fopen(filename.c_str(), "w")) == nullptr) {
+      std::cerr<<"Unable to save "<<filename<<std::endl;
+      assert(false);
+      return 1;
+  }
+  assert(fwrite(keypair_txrx.key_1.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp)==1);
+  assert(fwrite(keypair_txrx.key_1.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp)==1);
+  assert(fwrite(keypair_txrx.key_2.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp)==1);
+  assert(fwrite(keypair_txrx.key_2.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp)==1);
+  fclose(fp);
+  return 0;
+}
 
 /**
  * Reads a raw KeyPairTxRx from a raw file previusly generated.
  */
-static KeyPairTxRx read_keypair_from_file(const std::string& filename);
+static KeyPairTxRx read_keypair_from_file(const std::string& filename){
+  KeyPairTxRx ret{};
+  FILE *fp;
+  if ((fp = fopen(filename.c_str(), "r")) == nullptr) {
+      std::cerr<<fmt::format("Unable to open {}: {}", filename.c_str(), strerror(errno))<<std::endl;
+      assert(false);
+  }
+  assert(fread(ret.key_1.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp)==1);
+  assert(fread(ret.key_1.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp)==1);
+  assert(fread(ret.key_2.secret_key.data(), crypto_box_SECRETKEYBYTES, 1, fp)==1);
+  assert(fread(ret.key_2.public_key.data(), crypto_box_PUBLICKEYBYTES, 1, fp)==1);
+  fclose(fp);
+  return ret;
+}
 
 
 // https://libsodium.gitbook.io/doc/key_derivation

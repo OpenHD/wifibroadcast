@@ -36,7 +36,7 @@ int main(int argc, char *const *argv) {
       default: /* '?' */
       show_usage:
         fprintf(stderr,
-                "wfb-keygen [-b bind_phrase,deterministic], if no bind phrase is specified, random keys are generated (non-deterministic)\n",
+                "wfb-keygen [-b bind_phrase,deterministic], if no bind phrase is specified, random keys are generated (non-deterministic) %s\n",
                 argv[0]);
         exit(1);
     }
