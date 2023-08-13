@@ -5,6 +5,8 @@
 #include "FECEnabled.h"
 #include "wifibroadcast-spdlog.h"
 
+#include "FEC.hpp"
+
 void FECEncoder::encode_block(
     std::vector<std::shared_ptr<std::vector<uint8_t>>> data_packets,
     int n_secondary_fragments) {
@@ -87,7 +89,7 @@ void FECEncoder::encode_block(
 
 bool RxBlock::hasFragment(const int fragment_idx) {
   assert(fragment_idx<fragment_map.size());
-  return fragment_map[fragment_idx] == AVAILABLE;
+  return fragment_map[fragment_idx] == FRAGMENT_STATUS_AVAILABLE;
 }
 
 bool RxBlock::allPrimaryFragmentsHaveBeenForwarded() const {
@@ -115,11 +117,11 @@ void RxBlock::addFragment(const uint8_t* data, const std::size_t dataLen) {
   FECPayloadHdr& header=*hdr_p;
   assert(!hasFragment(header.fragment_idx));
   assert(header.block_idx == blockIdx);
-  assert(fragment_map[header.fragment_idx] == UNAVAILABLE);
+  assert(fragment_map[header.fragment_idx] == FRAGMENT_STATUS_UNAVAILABLE);
   assert(header.fragment_idx < blockBuffer.size());
   fragment_copy_payload(header.fragment_idx,data,dataLen);
   // mark it as available
-  fragment_map[header.fragment_idx] = FragmentStatus::AVAILABLE;
+  fragment_map[header.fragment_idx] = FRAGMENT_STATUS_AVAILABLE;
 
   // each fragment inside a block should report the same n of primary fragments
   if(m_n_primary_fragments_in_block ==-1){
@@ -162,7 +164,7 @@ std::vector<uint16_t> RxBlock::pullAvailablePrimaryFragments(
   // note: when pulling the available fragments, we do not need to know how many primary fragments this block actually contains
   std::vector<uint16_t> ret;
   for (int i = nAlreadyForwardedPrimaryFragments; i < m_n_available_primary_fragments; i++) {
-    if (fragment_map[i] == FragmentStatus::UNAVAILABLE) {
+    if (fragment_map[i] == FRAGMENT_STATUS_UNAVAILABLE) {
       if (discardMissingPackets) {
         continue;
       } else {
@@ -177,7 +179,7 @@ std::vector<uint16_t> RxBlock::pullAvailablePrimaryFragments(
 }
 
 const uint8_t* RxBlock::get_primary_fragment_data_p(const int fragment_index) {
-  assert(fragment_map[fragment_index] == AVAILABLE);
+  assert(fragment_map[fragment_index] == FRAGMENT_STATUS_AVAILABLE);
   assert(m_n_primary_fragments_in_block !=-1);
   assert(fragment_index< m_n_primary_fragments_in_block);
   //return blockBuffer[fragment_index].data()+sizeof(FECPayloadHdr);
@@ -185,7 +187,7 @@ const uint8_t* RxBlock::get_primary_fragment_data_p(const int fragment_index) {
 }
 
 const int RxBlock::get_primary_fragment_data_size(const int fragment_index) {
-  assert(fragment_map[fragment_index] == AVAILABLE);
+  assert(fragment_map[fragment_index] == FRAGMENT_STATUS_AVAILABLE);
   assert(m_n_primary_fragments_in_block !=-1);
   assert(fragment_index< m_n_primary_fragments_in_block);
   uint16_t* len_p=(uint16_t*)blockBuffer[fragment_index].data();
@@ -205,7 +207,7 @@ int RxBlock::reconstructAllMissingData() {
                                             m_n_primary_fragments_in_block, fragment_map);
   // now mark them as available
   for (const auto idx: recoveredFragmentIndices) {
-    fragment_map[idx] = AVAILABLE;
+    fragment_map[idx] = FRAGMENT_STATUS_AVAILABLE;
   }
   m_n_available_primary_fragments += recoveredFragmentIndices.size();
   // n of reconstructed packets

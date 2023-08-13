@@ -117,7 +117,7 @@ class RxBlock {
   // allocate much more memory every time for a new RX block than needed.
   explicit RxBlock(const unsigned int maxNFragmentsPerBlock, const uint64_t blockIdx1)
       :blockIdx(blockIdx1),
-        fragment_map(maxNFragmentsPerBlock,FragmentStatus::UNAVAILABLE), //after creation of the RxBlock every f. is marked as unavailable
+        fragment_map(maxNFragmentsPerBlock,FRAGMENT_STATUS_UNAVAILABLE), //after creation of the RxBlock every f. is marked as unavailable
         blockBuffer(maxNFragmentsPerBlock) {
     assert(fragment_map.size() == blockBuffer.size());
   }
@@ -185,7 +185,7 @@ class RxBlock {
   // n of primary fragments that are already pulled out
   int nAlreadyForwardedPrimaryFragments = 0;
   // for each fragment (via fragment_idx) store if it has been received yet
-  std::vector<FragmentStatus> fragment_map;
+  std::vector<bool> fragment_map;
   // holds all the data for all received fragments (if fragment_map says UNAVALIABLE at this position, content is undefined)
   std::vector<std::array<uint8_t, MAX_PAYLOAD_BEFORE_FEC>> blockBuffer;
   // time point when the first fragment for this block was received (via addFragment() )

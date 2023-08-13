@@ -19,6 +19,9 @@
 
 #include <getopt.h>
 
+#include <iostream>
+#include <optional>
+
 #include "../src/Encryption.h"
 
 /**
