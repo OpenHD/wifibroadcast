@@ -3,6 +3,9 @@
 //
 
 #include "FECEnabled.h"
+
+#include <cmath>
+
 #include "wifibroadcast-spdlog.h"
 
 #include "FEC.hpp"
@@ -438,4 +441,19 @@ void FECDecoder::reset_rx_queue() {
   }*/
   rx_queue.resize(0);
   last_known_block=((uint64_t) -1);
+}
+
+uint32_t calculate_n_secondary_fragments(uint32_t n_primary_fragments,
+                                         uint32_t fec_overhead_perc) {
+  if(fec_overhead_perc<=0)return 0;
+  const float n_secondary=static_cast<float>(n_primary_fragments) * static_cast<float>(fec_overhead_perc) / 100.0f;
+  if(n_secondary<=1.0){
+    // Always calculate at least one FEC packet
+    return 1;
+  }
+  return std::lroundf(n_secondary);
+}
+
+unsigned int calculateN(const unsigned int k, const unsigned int percentage) {
+  return k + calculate_n_secondary_fragments(k,percentage);
 }

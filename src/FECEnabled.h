@@ -6,22 +6,14 @@
 #define WIFIBROADCAST_FECENABLED_H
 
 #include <array>
-#include <cerrno>
-#include <cmath>
-#include <cstdint>
-#include <cstring>
-#include <functional>
-#include <iostream>
 #include <map>
-#include <optional>
-#include <stdexcept>
-#include <string>
-#include <utility>
-#include <vector>
 #include <memory>
+#include <optional>
+#include <string>
+#include <vector>
 
-#include "HelperSources/TimeHelper.hpp"
 #include "FEC.hpp"
+#include "HelperSources/TimeHelper.hpp"
 
 /**
  * Encoder and Decoder pair for FEC protected block / packet based data streaming.
@@ -62,22 +54,18 @@ static constexpr const uint16_t MAX_N_S_FRAGMENTS_PER_BLOCK = 128;
 static constexpr const uint16_t
     MAX_TOTAL_FRAGMENTS_PER_BLOCK = MAX_N_P_FRAGMENTS_PER_BLOCK + MAX_N_S_FRAGMENTS_PER_BLOCK;
 
-// For dynamic block sizes, we switched to a FEC overhead "percentage" value.
-// e.g. the final data throughput ~= original data throughput * fec overhead percentage
-static uint32_t calculate_n_secondary_fragments(uint32_t n_primary_fragments,uint32_t fec_overhead_perc){
-  if(fec_overhead_perc<=0)return 0;
-  const float n_secondary=static_cast<float>(n_primary_fragments) * static_cast<float>(fec_overhead_perc) / 100.0f;
-  if(n_secondary<=1.0){
-    // Always calculate at least one FEC packet
-    return 1;
-  }
-  return std::lroundf(n_secondary);
-}
-// calculate n from k and percentage as used in FEC terms
-// (k: number of primary fragments, n: primary + secondary fragments)
-static unsigned int calculateN(const unsigned int k, const unsigned int percentage) {
-  return k + calculate_n_secondary_fragments(k,percentage);
-}
+/**
+ * For dynamic block sizes, we switched to a FEC overhead "percentage" value.
+ * e.g. the final data throughput ~= original data throughput * fec overhead percentage
+ * Rounds up / down (.5), but always at least 1
+ */
+uint32_t calculate_n_secondary_fragments(uint32_t n_primary_fragments,uint32_t fec_overhead_perc);
+
+/**
+ * calculate n from k and percentage as used in FEC terms
+ * (k: number of primary fragments, n: primary + secondary fragments)
+ */
+unsigned int calculateN(unsigned int k, unsigned int percentage);
 
 class FECEncoder {
  public:

@@ -6,7 +6,9 @@
 #define WIFIBROADCAST_SRC_HELPERSOURCES_SEQNRHELPER_H_
 
 #include <atomic>
+#include <cmath>
 #include <memory>
+
 #include "../wifibroadcast-spdlog.h"
 
 namespace seq_nr{
