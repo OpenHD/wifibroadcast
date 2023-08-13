@@ -11,7 +11,7 @@
 #include "wifibroadcast_spdlog.h"
 
 /**
- * Helper to accumulate RSSI values
+ * UINT16SeqNrHelper to accumulate RSSI values
  */
 class RSSIAccumulator{
  public:

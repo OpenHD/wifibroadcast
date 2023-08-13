@@ -11,18 +11,18 @@
 #include <atomic>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <utility>
-#include <optional>
 
 #include "Encryption.h"
 #include "Ieee80211Header.hpp"
-#include "NonceSeqNrHelper.h"
+#include "RSSIAccumulator.hpp"
 #include "RadiotapHeader.hpp"
 #include "SeqNrHelper.hpp"
-#include "TimeHelper.hpp"
-#include "RSSIAccumulator.hpp"
 #include "SignalQualityAccumulator.hpp"
+#include "TimeHelper.hpp"
+#include "UInt64SeqNrHelper.h"
 
 /**
  * This class exists to provide a clean, working interface to create a
@@ -299,10 +299,10 @@ class WBTxRx {
   std::unique_ptr<std::thread> m_receive_thread;
   std::vector<pollfd> m_receive_pollfds;
   std::chrono::steady_clock::time_point m_last_receiver_error_log=std::chrono::steady_clock::now();
-  seq_nr::Helper m_seq_nr_helper_iee80211;
+  UINT16SeqNrHelper m_seq_nr_helper_iee80211;
   // for calculating the loss and more per rx card (when multiple rx cards are used)
   struct PerCardCalculators{
-    NonceSeqNrHelper seq_nr{};
+    UInt64SeqNrHelper seq_nr{};
     RSSIAccumulator card_rssi{};
     RSSIAccumulator antenna1_rssi{};
     RSSIAccumulator antenna2_rssi{};

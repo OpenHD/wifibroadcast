@@ -11,7 +11,7 @@
 #include "wifibroadcast_spdlog.h"
 
 /**
- * Helper to accumulate (rtl8812au) signal quality values
+ * UINT16SeqNrHelper to accumulate (rtl8812au) signal quality values
  */
 class SignalQualityAccumulator{
  public:

@@ -77,7 +77,7 @@ KeyPairTxRx read_keypair_from_file(const std::string& filename);
 
 /**
  * https://libsodium.gitbook.io/doc/key_derivation
- * Helper since we both support encryption and one time validation to save cpu performance
+ * UINT16SeqNrHelper since we both support encryption and one time validation to save cpu performance
  */
 std::array<uint8_t,32> create_onetimeauth_subkey(const uint64_t& nonce,const std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES>& session_key);
 

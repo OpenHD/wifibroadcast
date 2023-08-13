@@ -12,25 +12,11 @@
 #include "../wifibroadcast_spdlog.h"
 #include <spdlog/spdlog.h>
 
-namespace seq_nr{
 
-static int diff_between_packets_rolling_uint16_t(int last_packet,int curr_packet){
-  if(last_packet==curr_packet){
-    wifibroadcast::log::get_default()->debug("Duplicate in seq nr {}-{}, invalid usage",last_packet,curr_packet);
-  }
-  if(curr_packet<last_packet){
-    // We probably have overflown the uin16_t range
-    const auto diff=curr_packet+UINT16_MAX+1-last_packet;
-    return diff;
-  }else{
-    return curr_packet-last_packet;
-  }
-}
-
-// Helper for calculating statistics for a link with a rolling (wrap around) uint16_t sequence number
-class Helper{
+// UINT16SeqNrHelper for calculating statistics for a link with a rolling (wrap around) uint16_t sequence number
+class UINT16SeqNrHelper {
  public:
-  Helper(){
+  UINT16SeqNrHelper(){
     m_gaps.reserve(MAX_N_STORED_GAPS);
     m_curr_packet_loss=-1;
   }
@@ -115,6 +101,18 @@ class Helper{
       m_last_big_gaps_counter_recalculation=std::chrono::steady_clock::now();
     }
   }
+  static int diff_between_packets_rolling_uint16_t(int last_packet,int curr_packet){
+    if(last_packet==curr_packet){
+      wifibroadcast::log::get_default()->debug("Duplicate in seq nr {}-{}, invalid usage",last_packet,curr_packet);
+    }
+    if(curr_packet<last_packet){
+      // We probably have overflown the uin16_t range
+      const auto diff=curr_packet+UINT16_MAX+1-last_packet;
+      return diff;
+    }else{
+      return curr_packet-last_packet;
+    }
+  }
  private:
   int m_last_seq_nr=-1;
   static constexpr int MAX_N_STORED_GAPS=1000;
@@ -132,5 +130,4 @@ class Helper{
   bool m_store_and_debug_gaps= false;
 };
 
-}
 #endif  // WIFIBROADCAST_SRC_HELPERSOURCES_SEQNRHELPER_H_

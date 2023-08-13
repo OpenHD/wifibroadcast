@@ -87,7 +87,6 @@ class WBStreamRx {
   // On the rx, either one of those two is active at the same time.
   std::unique_ptr<FECDecoder> m_fec_decoder = nullptr;
   std::unique_ptr<FECDisabledDecoder> m_fec_disabled_decoder = nullptr;
-  seq_nr::Helper m_seq_nr_helper;
   void on_new_packet(uint64_t nonce,int wlan_index,const uint8_t *data, const int data_len);
   void on_new_session();
   void on_decoded_packet(const uint8_t* data,int data_len);

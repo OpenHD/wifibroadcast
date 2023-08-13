@@ -13,7 +13,7 @@
 
 #include "StringHelper.hpp"
 
-// Generic "Helper" code that does not depend on anything else other than the std libraries
+// Generic "UINT16SeqNrHelper" code that does not depend on anything else other than the std libraries
 
 namespace GenericHelper {
 // fill buffer with random bytes
