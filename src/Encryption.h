@@ -12,7 +12,7 @@
 #include <sodium.h>
 #include "wifibroadcast-spdlog.h"
 
-// Single Header file that can be used to add encryption+packet validation
+// Namespace that can be used to add encryption+packet validation
 // (Or packet validation only to save CPU resources)
 // to a lossy unidirectional link
 // Packet validation is quite important, to make sure only openhd packets (and not standard wifi packets) are used in OpenHD
@@ -300,7 +300,7 @@ class Decryptor {
     m_encrypt_data =encryption_enabled;
   }
   // Set to true as soon as a valid session has been detected
-  bool has_valid_session(){
+  bool has_valid_session() const{
     return m_has_valid_session;
   }
  private:
