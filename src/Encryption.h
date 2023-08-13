@@ -49,30 +49,25 @@ struct KeyPairTxRx {
 /**
  * Generates a new keypair. Non-deterministic, 100% secure.
  */
-static KeyPairTxRx generate_keypair_random(){
-  KeyPairTxRx ret{};
-  crypto_box_keypair(ret.key_1.public_key.data(), ret.key_1.secret_key.data());
-  crypto_box_keypair(ret.key_2.public_key.data(), ret.key_2.secret_key.data());
-  return ret;
-}
+static KeyPairTxRx generate_keypair_random();
 
 // Salts generated once using https://www.random.org/cgi-bin/randbyte?nbytes=16&format=d
 // We want deterministic seed from a pw, and are only interested in making it impossible to reverse the process (even though the salt is plain text)
 static constexpr std::array<uint8_t,crypto_pwhash_SALTBYTES> OHD_SALT_AIR{192,189,216,102,56,153,154,92,228,26,49,209,157,7,128,207};
 static constexpr std::array<uint8_t,crypto_pwhash_SALTBYTES> OHD_SALT_GND{179,30,150,20,17,200,225,82,48,64,18,130,89,62,83,234};
-static constexpr auto OHD_DEFAULT_TX_RX_KEY_FILENAME="txrx.key";
-
 /**
  * See https://libsodium.gitbook.io/doc/password_hashing
  * Deterministic seed from password, but hides password itself (non-reversible)
+ * Uses a pre-defined salt to be deterministic
  */
-static std::array<uint8_t , crypto_box_SEEDBYTES> create_seed_from_password(const std::string& pw,bool use_salt_air){
+static std::array<uint8_t , crypto_box_SEEDBYTES>
+create_seed_from_password_openhd_salt(const std::string& pw,bool use_salt_air){
   const auto salt = use_salt_air ? OHD_SALT_AIR : OHD_SALT_GND;
   std::array<uint8_t , crypto_box_SEEDBYTES> key{};
   if (crypto_pwhash(key.data(), key.size(), pw.c_str(), pw.length(), salt.data(),
                     crypto_pwhash_OPSLIMIT_INTERACTIVE, crypto_pwhash_MEMLIMIT_INTERACTIVE,
                     crypto_pwhash_ALG_DEFAULT) != 0) {
-      std::cerr<<"ERROR: cannot create_seed_from_password"<<std::endl;
+      std::cerr<<"ERROR: cannot create_seed_from_password_openhd_salt"<<std::endl;
       assert(false);
       // out of memory
   }
@@ -86,8 +81,10 @@ static constexpr auto DEFAULT_BIND_PHRASE="openhd";
  * @param bind_phrase the password / bind phrase
  */
 static KeyPairTxRx generate_keypair_from_bind_phrase(const std::string& bind_phrase=DEFAULT_BIND_PHRASE){
-  const auto seed_air= create_seed_from_password(bind_phrase, true);
-  const auto seed_gnd= create_seed_from_password(bind_phrase, false);
+  const auto seed_air=
+      create_seed_from_password_openhd_salt(bind_phrase, true);
+  const auto seed_gnd=
+      create_seed_from_password_openhd_salt(bind_phrase, false);
   KeyPairTxRx ret{};
   crypto_box_seed_keypair(ret.key_1.public_key.data(), ret.key_1.secret_key.data(),seed_air.data());
   crypto_box_seed_keypair(ret.key_2.public_key.data(), ret.key_2.secret_key.data(),seed_gnd.data());
