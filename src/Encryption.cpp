@@ -4,6 +4,12 @@
 
 #include "Encryption.h"
 
+#include <cassert>
+#include <cstring>
+#include <iostream>
+
+#include "wifibroadcast-spdlog.h"
+
 wb::KeyPairTxRx wb::generate_keypair_random() {
   KeyPairTxRx ret{};
   crypto_box_keypair(ret.key_1.public_key.data(), ret.key_1.secret_key.data());
@@ -125,6 +131,12 @@ wb::Encryptor::authenticate_and_encrypt_buff(const uint64_t& nonce,
   assert(size==ret->size());
   return ret;
 }
+
+wb::Decryptor::Decryptor(wb::Key key1)
+    :rx_secretkey(key1.secret_key),tx_publickey(key1.public_key){
+  memset(session_key.data(), 0, sizeof(session_key));
+}
+
 
 int wb::Decryptor::onNewPacketSessionKeyData(
     const std::array<uint8_t, 24U>& sessionKeyNonce,

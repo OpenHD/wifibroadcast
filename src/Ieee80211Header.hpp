@@ -14,9 +14,14 @@
 #include <sys/mman.h>
 #include <endian.h>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <array>
 #include <iostream>
+#include <cassert>
+
+#include "wifibroadcast-spdlog.h"
+#include "HelperSources/StringHelper.hpp"
 
 // Helper for dealing with the IEEE80211 header in wifibroadcast / openhd
 // Usefully references:

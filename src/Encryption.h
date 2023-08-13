@@ -2,15 +2,12 @@
 #ifndef ENCRYPTION_HPP
 #define ENCRYPTION_HPP
 
-#include "HelperSources/Helper.hpp"
-#include <cstdio>
-#include <stdexcept>
 #include <vector>
-#include <optional>
-#include <iostream>
 #include <array>
+#include <string>
+#include <memory>
+
 #include <sodium.h>
-#include "wifibroadcast-spdlog.h"
 
 // Namespace that can be used to add encryption+packet validation
 // (Or packet validation only to save CPU resources)
@@ -137,10 +134,7 @@ class Decryptor {
  public:
   // enable a default deterministic encryption key by using std::nullopt
   // else, pass path to file with encryption keys
-  explicit Decryptor(wb::Key key1)
-      :rx_secretkey(key1.secret_key),tx_publickey(key1.public_key){
-    memset(session_key.data(), 0, sizeof(session_key));
-  }
+  explicit Decryptor(wb::Key key1);
   static constexpr auto SESSION_VALID_NEW=0;
   static constexpr auto SESSION_VALID_NOT_NEW=1;
   static constexpr auto SESSION_NOT_VALID=-1;
