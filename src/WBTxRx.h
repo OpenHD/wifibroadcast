@@ -19,9 +19,9 @@
 #include "Ieee80211Header.hpp"
 #include "RSSIAccumulator.hpp"
 #include "RadiotapHeader.hpp"
-#include "SeqNrHelper.hpp"
 #include "SignalQualityAccumulator.hpp"
 #include "TimeHelper.hpp"
+#include "UInt16SeqNrHelper.hpp"
 #include "UInt64SeqNrHelper.h"
 
 /**
