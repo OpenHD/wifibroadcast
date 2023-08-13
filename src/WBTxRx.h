@@ -13,15 +13,16 @@
 #include <mutex>
 #include <thread>
 #include <utility>
+#include <optional>
 
 #include "Encryption.h"
 #include "Ieee80211Header.hpp"
 #include "NonceSeqNrHelper.h"
-#include "RSSIAccumulator.hpp"
 #include "RadiotapHeader.hpp"
 #include "SeqNrHelper.hpp"
-#include "SignalQualityAccumulator.hpp"
 #include "TimeHelper.hpp"
+#include "RSSIAccumulator.hpp"
+#include "SignalQualityAccumulator.hpp"
 
 /**
  * This class exists to provide a clean, working interface to create a
@@ -306,13 +307,7 @@ class WBTxRx {
     RSSIAccumulator antenna1_rssi{};
     RSSIAccumulator antenna2_rssi{};
     SignalQualityAccumulator signal_quality{};
-    void reset_all(){
-      seq_nr.reset();
-      card_rssi.reset();
-      antenna1_rssi.reset();
-      antenna2_rssi.reset();
-      signal_quality.reset();
-    }
+    void reset_all();
   };
   std::vector<std::shared_ptr<PerCardCalculators>> m_per_card_calc;
   OUTPUT_DATA_CALLBACK m_output_cb= nullptr;

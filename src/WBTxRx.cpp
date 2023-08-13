@@ -9,6 +9,7 @@
 #include "pcap_helper.hpp"
 #include "SchedulingHelper.hpp"
 
+
 WBTxRx::WBTxRx(std::vector<WifiCard> wifi_cards1,Options options1)
     : m_options(options1),
       m_wifi_cards(std::move(wifi_cards1)),
@@ -772,4 +773,12 @@ std::string WBTxRx::rx_stats_per_card_to_string(
 std::string WBTxRx::options_to_string(const std::vector<std::string>& wifi_cards,const WBTxRx::Options& options) {
   return fmt::format("Id:{} Cards:{} Key:{} ",options.use_gnd_identifier ? "Ground":"Air",StringHelper::string_vec_as_string(wifi_cards),
                      options.secure_keypair.has_value() ? "Custom" : "Default(openhd)");
+}
+
+void WBTxRx::PerCardCalculators::reset_all() {
+    seq_nr.reset();
+    card_rssi.reset();
+    antenna1_rssi.reset();
+    antenna2_rssi.reset();
+    signal_quality.reset();
 }
