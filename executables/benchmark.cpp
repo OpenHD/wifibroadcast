@@ -31,7 +31,7 @@
 #include <string>
 
 #include "../src/Encryption.h"
-#include "../src/FECEnabled.h"
+#include "../src/FECStream.h"
 #include "../src/HelperSources/RandomBufferPot.hpp"
 #include "../src/HelperSources/SchedulingHelper.hpp"
 

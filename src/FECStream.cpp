@@ -2,13 +2,11 @@
 // Created by consti10 on 30.06.23.
 //
 
-#include "FECEnabled.h"
-
 #include <cmath>
 
-#include "wifibroadcast-spdlog.h"
-
 #include "FEC.hpp"
+#include "FECStream.h"
+#include "wifibroadcast-spdlog.h"
 
 void FECEncoder::encode_block(
     std::vector<std::shared_ptr<std::vector<uint8_t>>> data_packets,

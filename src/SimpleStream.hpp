@@ -2,8 +2,8 @@
 // Created by consti10 on 10.03.21.
 //
 
-#ifndef WIFIBROADCAST_FECDISABLED_HPP
-#define WIFIBROADCAST_FECDISABLED_HPP
+#ifndef WIFIBROADCAST_SIMPLESTREAM_HPP
+#define WIFIBROADCAST_SIMPLESTREAM_HPP
 
 #include <cstdint>
 #include <cerrno>
@@ -109,4 +109,4 @@ class FECDisabledDecoder {
   }
 };
 
-#endif //WIFIBROADCAST_FECDISABLED_HPP
+#endif  // WIFIBROADCAST_SIMPLESTREAM_HPP

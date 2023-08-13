@@ -24,7 +24,7 @@
 #include <sstream>
 #include <string>
 
-#include "../src/FECEnabled.h"
+#include "../src/FECStream.h"
 //#include "../src/FECEnabled.hpp"
 
 #include "../src/Encryption.h"

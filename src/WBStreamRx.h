@@ -5,17 +5,16 @@
 #ifndef WIFIBROADCAST_WBSTREAMRX_H
 #define WIFIBROADCAST_WBSTREAMRX_H
 
-#include "FECDisabled.hpp"
-#include "FECEnabled.h"
+#include "../moodycamel/concurrentqueue/blockingconcurrentqueue.h"
+#include "../moodycamel/readerwriterqueue/readerwritercircularbuffer.h"
+#include "FECStream.h"
 #include "HelperSources/Helper.hpp"
 #include "HelperSources/SeqNrHelper.hpp"
 #include "HelperSources/SequenceNumberDebugger.hpp"
 #include "HelperSources/TimeHelper.hpp"
+#include "SimpleStream.hpp"
 #include "WBTxRx.h"
 #include "wifibroadcast-spdlog.h"
-
-#include "../moodycamel/concurrentqueue/blockingconcurrentqueue.h"
-#include "../moodycamel/readerwriterqueue/readerwritercircularbuffer.h"
 
 /**
  * Receiver for a (multiplexed) wifbroadcast stream
