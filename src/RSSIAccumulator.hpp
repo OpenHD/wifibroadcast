@@ -8,7 +8,7 @@
 #include <optional>
 
 #include "TimeHelper.hpp"
-#include "wifibroadcast-spdlog.h"
+#include "wifibroadcast_spdlog.h"
 
 /**
  * Helper to accumulate RSSI values

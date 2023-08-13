@@ -2,7 +2,7 @@
 // Created by consti10 on 13.08.23.
 //
 
-#include "wifibroadcast-spdlog-fake.h"
+#include "wifibroadcast_spdlog_fake.h"
 
 void spdlog::logger::lool() {
 

@@ -8,7 +8,7 @@
 #include <cstring>
 #include <iostream>
 
-#include "wifibroadcast-spdlog.h"
+#include "wifibroadcast_spdlog.h"
 
 wb::KeyPairTxRx wb::generate_keypair_random() {
   KeyPairTxRx ret{};

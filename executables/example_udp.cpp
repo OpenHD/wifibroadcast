@@ -2,15 +2,15 @@
 // Created by consti10 on 30.06.23.
 //
 
+#include "../src/HelperSources/SocketHelper.hpp"
+#include "../src/HelperSources/TimeHelper.hpp"
 #include "../src/WBStreamRx.h"
 #include "../src/WBStreamTx.h"
 #include "../src/WBTxRx.h"
-#include "../src/wifibroadcast-spdlog.h"
-#include "../src/HelperSources/SocketHelper.hpp"
-#include "RandomBufferPot.hpp"
-#include "../src/HelperSources/TimeHelper.hpp"
 #include "../src/legacy/WBStreamRxUDP.h"
 #include "../src/legacy/WBStreamTxUDP.h"
+#include "../src/wifibroadcast_spdlog.h"
+#include "RandomBufferPot.hpp"
 
 /**
  * Simple example application that uses UDP as data input / output

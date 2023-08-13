@@ -6,10 +6,10 @@
 #define WIFIBROADCAST_NONCESEQNRHELPER_H
 
 #include <atomic>
-#include <memory>
 #include <cmath>
+#include <memory>
 
-#include "../wifibroadcast-spdlog.h"
+#include "../wifibroadcast_spdlog.h"
 #include "StringHelper.hpp"
 
 // Helper for dealing with sequence number

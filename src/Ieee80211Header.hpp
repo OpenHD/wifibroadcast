@@ -1,27 +1,27 @@
 #ifndef __WIFIBROADCAST_IEEE80211_HEADER_HPP__
 #define __WIFIBROADCAST_IEEE80211_HEADER_HPP__
 
-#include <cstdio>
-#include <cstdlib>
-#include <cerrno>
-#include <resolv.h>
-#include <cstring>
-#include <utime.h>
-#include <unistd.h>
-#include <getopt.h>
 #include <endian.h>
 #include <fcntl.h>
+#include <getopt.h>
+#include <resolv.h>
 #include <sys/mman.h>
-#include <endian.h>
-#include <string>
-#include <sstream>
-#include <vector>
-#include <array>
-#include <iostream>
-#include <cassert>
+#include <unistd.h>
+#include <utime.h>
 
-#include "wifibroadcast-spdlog.h"
+#include <array>
+#include <cassert>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+
 #include "HelperSources/StringHelper.hpp"
+#include "wifibroadcast_spdlog.h"
 
 // Helper for dealing with the IEEE80211 header in wifibroadcast / openhd
 // Usefully references:

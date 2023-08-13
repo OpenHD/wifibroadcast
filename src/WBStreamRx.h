@@ -14,7 +14,7 @@
 #include "HelperSources/TimeHelper.hpp"
 #include "SimpleStream.hpp"
 #include "WBTxRx.h"
-#include "wifibroadcast-spdlog.h"
+#include "wifibroadcast_spdlog.h"
 
 /**
  * Receiver for a (multiplexed) wifbroadcast stream
