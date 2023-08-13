@@ -8,20 +8,17 @@
 #include <memory>
 #include <string>
 
-namespace fmt{
+namespace fmt {
 
 template <typename... T>
-static std::string format(const std::string& unused1, T&&... args){
+static std::string format(const std::string& unused1, T&&... args) {
   return "";
 }
 
 template <typename... T>
-static void print(const std::string& unused1, T&&... args){
+static void print(const std::string& unused1, T&&... args) {}
 
 }
-
-}
-
 namespace spdlog{
 
 class logger{
@@ -30,6 +27,7 @@ class logger{
   void debug(const std::string& unused1, Args &&...args){
 
   }
+
 
   template<typename... Args>
   void warn(const std::string& unused1, Args &&...args){
@@ -43,8 +41,10 @@ class logger{
 
   template<typename... Args>
   void error(const std::string& unused1, Args &&...args){
-
+      lool();
   };
+
+  static void lool();
 
 };
 
