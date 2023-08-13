@@ -6,13 +6,16 @@
 #define WIFIBROADCAST_PACKETIZEDBENCHMARK_H
 
 #include <cassert>
-#include <cstdio>
-#include <memory>
-#include <string>
 #include <chrono>
-#include <sstream>
+#include <cstdio>
+#include <iostream>
 #include <list>
+#include <memory>
+#include <sstream>
+#include <string>
 #include <utility>
+
+#include "StringHelper.hpp"
 
 // Helpers fo performing packet-based throughput measurement
 // and/or duration-based measurement

@@ -101,9 +101,10 @@ void benchmark_fec_encode(const Options &options, bool printBlockTime = false) {
 void benchmark_crypt(const Options &options,const bool packet_validation_only) {
   assert(options.benchmarkType == BENCHMARK_ENCRYPT || options.benchmarkType == BENCHMARK_DECRYPT);
   const bool encrypt=options.benchmarkType==BENCHMARK_ENCRYPT;
-  wb::Encryptor encryptor{wb::generate_keypair_deterministic(true)};
+  const wb::KeyPairTxRx keyPairTxRx=wb::generate_keypair_from_bind_phrase("openhd");
+  wb::Encryptor encryptor{keyPairTxRx.key_1};
   encryptor.set_encryption_enabled(!packet_validation_only);
-  wb::Decryptor decryptor{wb::generate_keypair_deterministic(true)};
+  wb::Decryptor decryptor{keyPairTxRx.key_1};
   decryptor.set_encryption_enabled(!packet_validation_only);
   std::array<uint8_t, crypto_box_NONCEBYTES> sessionKeyNonce{};
   std::array<uint8_t, crypto_aead_chacha20poly1305_KEYBYTES + crypto_box_MACBYTES> sessionKeyData{};
