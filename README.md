@@ -30,7 +30,7 @@ needs to support active and passive monitor mode (listening & injecting packets)
 [Link implementation](https://github.com/OpenHD/OpenHD/blob/2.3-evo/OpenHD/ohd_interface/inc/wb_link.h#L31)
 
 ### Pre unify tx / rx
-The design principle of running multiple instances of an application (e.g. wifibroadcast tx / rx)
+The design principle of running multiple instances of an application (e.g. wifibroadcast tx / rx) 
 has a couple of disadvantages. 
 It makes debugging quite hard (you now have multiple applications for video tx, video rx, and telemetry tx, telemetry rx),
 makes threading and sequencing harder and also increases latency on the tx with the udp & rtp approach.
