@@ -40,7 +40,6 @@ int main(int argc, char *const *argv) {
         advanced_debugging= true;
         break ;
       default: /* '?' */
-      show_usage:
         fprintf(stderr,
                 "Example hello %s [-a run as air] [-g run as ground] [-w wifi card to use]\n",
                 argv[0]);
