@@ -10,7 +10,8 @@
 #include "RandomBufferPot.hpp"
 #include "Rates.hpp"
 
-// Utility / benchmark executable to find the maximum injection rate possible for the card given a MCS index
+// Utility / benchmark executable to find the maximum injection rate possible
+// for the card given a MCS index
 // It works by increasing the injection rate (injected bitrate / packets per second) until there are so called
 // "TX ERRORS", aka the driver tx packet queue is running full
 

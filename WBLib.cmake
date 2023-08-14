@@ -35,7 +35,8 @@ target_sources(wifibroadcast PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/src/wifibroadcast_spdlog.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/Encryption.cpp
         )
-target_include_directories(wifibroadcast PRIVATE
+
+target_include_directories(wifibroadcast PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/src/HelperSources
 )
 

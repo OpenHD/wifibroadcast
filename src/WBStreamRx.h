@@ -5,8 +5,8 @@
 #ifndef WIFIBROADCAST_WBSTREAMRX_H
 #define WIFIBROADCAST_WBSTREAMRX_H
 
-#include "../moodycamel/concurrentqueue/blockingconcurrentqueue.h"
-#include "../moodycamel/readerwriterqueue/readerwritercircularbuffer.h"
+#include "moodycamel/concurrentqueue/blockingconcurrentqueue.h"
+#include "moodycamel/readerwriterqueue/readerwritercircularbuffer.h"
 #include "FECStream.h"
 #include "HelperSources/Helper.hpp"
 #include "HelperSources/SequenceNumberDebugger.hpp"

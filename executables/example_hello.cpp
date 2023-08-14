@@ -6,7 +6,6 @@
 #include "../src/WBStreamTx.h"
 #include "../src/WBTxRx.h"
 #include "../src/wifibroadcast_spdlog.h"
-#include "RandomBufferPot.hpp"
 
 /**
  * Simple demo application that sends out hello messages and listens for hello messages.

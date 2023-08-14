@@ -20,9 +20,8 @@
 #include "RSSIAccumulator.hpp"
 #include "RadiotapHeader.hpp"
 #include "SignalQualityAccumulator.hpp"
-#include "TimeHelper.hpp"
-#include "UINT16SeqNrHelper.hpp"
-#include "UINT64SeqNrHelper.hpp"
+#include "HelperSources/UINT16SeqNrHelper.hpp"
+#include "HelperSources/UINT64SeqNrHelper.hpp"
 
 /**
  * This class exists to provide a clean, working interface to create a
