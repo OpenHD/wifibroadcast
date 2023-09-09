@@ -12,6 +12,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <thread>
 #include <utility>
 
@@ -98,11 +99,10 @@ class ExtTxRx {
   // RTL8812AU driver requires a quirk regarding rssi
   static constexpr auto WIFI_CARD_TYPE_UNKNOWN=0;
   static constexpr auto WIFI_CARD_TYPE_RTL8812AU=1;
-  struct WifiCard{
-    std::string name;
-    int type;
+  struct UdpWifiCard{
+    int port;
   };
-  explicit ExtTxRx(std::vector<WifiCard> wifi_cards, Options options1);
+  explicit ExtTxRx(std::vector<UdpWifiCard> wifi_cards, Options options1);
   ExtTxRx(const ExtTxRx&) = delete;
   ExtTxRx& operator=(const ExtTxRx&) = delete;
   ~ExtTxRx();
@@ -259,11 +259,11 @@ class ExtTxRx {
  private:
   const Options m_options;
   std::shared_ptr<spdlog::logger> m_console;
-  const std::vector<WifiCard> m_wifi_cards;
+  const std::vector<UdpWifiCard> m_wifi_cards;
   std::vector<std::string> get_wifi_card_names(){
      std::vector<std::string> ret;
      for(const auto& card:m_wifi_cards){
-       ret.push_back(card.name);
+       ret.push_back(std::to_string(card.port));
      }
      return ret;
   }
@@ -297,12 +297,13 @@ class ExtTxRx {
   SessionKeyPacket m_tx_sess_key_packet;
   std::unique_ptr<wb::Encryptor> m_encryptor;
   std::unique_ptr<wb::Decryptor> m_decryptor;
-  struct PcapTxRx{
-    pcap_t *tx= nullptr;
-    pcap_t *rx= nullptr;
-    int tx_sockfd=-1;
+
+  struct UdpTxRx
+  {
+     int sockfd;
   };
-  std::vector<PcapTxRx> m_pcap_handles;
+
+  std::vector<UdpTxRx> m_pcap_handles;
   // temporary
   std::mutex m_tx_mutex;
   bool keep_receiving= true;
@@ -343,15 +344,6 @@ class ExtTxRx {
   AvgCalculator m_packet_decrypt_time;
   AvgCalculator m_tx_inject_time;
  private:
-  // For OpenHD rate control, this method should block until the driver accepted the packet
-  // returns true if packet is now in linux kernel / driver hands, false otherwise.
-  // on failure, m_tx_stats.count_tx_errors is increased by one
-  // if injection takes "really long", tx error hint is increase
-  bool inject_radiotap_packet(int card_index,const uint8_t* packet_buff,int packet_size);
-  // we announce the session key in regular intervals if data is currently being injected (tx_ is called)
-  void announce_session_key_if_needed();
-  // send out the session key
-  void send_session_key();
   // called by the receive thread, wait for data to become available then pull data
   void loop_receive_packets();
   // pull data from a pcap handle which has data available
@@ -365,9 +357,6 @@ class ExtTxRx {
   // called avery time we have successfully decrypted a packet
   void on_valid_packet(uint64_t nonce,int wlan_index,uint8_t stream_index,const uint8_t *data,int data_len);
   static std::string options_to_string(const std::vector<std::string>& wifi_cards,const Options& options);
-  // Adjustment of which card is used for injecting packets in case there are multiple RX card(s)
-  // (Of all cards currently receiving data, find the one with the highest reported dBm)
-  void switch_tx_card_if_needed();
  private:
   // These are 'extra' for calculating some channel pollution value
   uint32_t m_pollution_total_rx_packets=0;
@@ -378,6 +367,9 @@ class ExtTxRx {
   uint32_t m_likely_wrong_encryption_valid_session_keys=0;
   std::chrono::steady_clock::time_point m_likely_wrong_encryption_last_check=std::chrono::steady_clock::now();
   uint32_t m_likely_wrong_encryption_invalid_session_keys=0;
+
+
+  int open_udp_rx(const int port);
 };
 
 static std::ostream& operator<<(std::ostream& strm, const ExtTxRx::TxStats& data){
