@@ -228,19 +228,10 @@ void ExtTxRx::on_new_packet(const uint8_t wlan_idx,const uint8_t *pkt,const int 
     m_console->debug("Got packet {} {}",wlan_idx,pkt_len);
   }
 
-  const auto parsedPacket = RadiotapHelper::process_received_radiotap_packet(pkt,pkt_len);
+  const auto& rx_iee80211_hdr_openhd = *((Ieee80211HeaderOpenHD*)pkt);
 
-  if (parsedPacket == std::nullopt)
-  {
-    if(m_options.advanced_debugging_rx)
-    {
-      m_console->warn("Discarding packet due to pcap parsing error!");
-    }
-    return;
-  }
-
-  const uint8_t *pkt_payload = parsedPacket->payload;
-  const size_t pkt_payload_size = parsedPacket->payloadSize;
+  const uint8_t *pkt_payload = pkt+24;
+  const size_t pkt_payload_size = pkt_len+28;
 
   m_rx_stats.count_p_any++;
   m_rx_stats.count_bytes_any+=pkt_payload_size;
@@ -251,17 +242,6 @@ void ExtTxRx::on_new_packet(const uint8_t wlan_idx,const uint8_t *pkt,const int 
     m_pollution_total_rx_packets++;
   }
 
-  if (parsedPacket->frameFailedFCSCheck)
-  {
-    if(m_options.advanced_debugging_rx)
-    {
-      m_console->debug("Discarding packet due to bad FCS!");
-    }
-
-    return;
-  }
-
-  const auto& rx_iee80211_hdr_openhd=*((Ieee80211HeaderOpenHD*)parsedPacket->ieee80211Header);
   //m_console->debug(parsedPacket->ieee80211Header->header_as_string());
   if (!rx_iee80211_hdr_openhd.is_data_frame())
   {
@@ -274,16 +254,17 @@ void ExtTxRx::on_new_packet(const uint8_t wlan_idx,const uint8_t *pkt,const int 
   }
 
   // All these edge cases should NEVER happen if using a proper tx/rx setup and the wifi driver isn't complete crap
-  if (parsedPacket->payloadSize <= 0 || parsedPacket->payloadSize > RAW_WIFI_FRAME_MAX_PAYLOAD_SIZE)
+  if (pkt_payload_size <= 0)
   {
     m_console->warn("Discarding packet due to no actual payload !");
     return;
   }
 
   // Generic packet validation end - now to the openhd specific validation(s)
-  if (parsedPacket->payloadSize > RAW_WIFI_FRAME_MAX_PAYLOAD_SIZE)
+  if (pkt_payload_size > RAW_WIFI_FRAME_MAX_PAYLOAD_SIZE)
   {
-    m_console->warn("Discarding packet due to payload exceeding max {}",(int) parsedPacket->payloadSize);
+    m_console->warn("Discarding packet due to payload exceeding max {}",
+                    (int)pkt_payload_size);
     return;
   }
 
@@ -377,7 +358,7 @@ void ExtTxRx::on_new_packet(const uint8_t wlan_idx,const uint8_t *pkt,const int 
     /*if(wlan_idx!=0){
       return ;
     }*/
-    SessionKeyPacket &sessionKeyPacket = *((SessionKeyPacket*) parsedPacket->payload);
+    SessionKeyPacket& sessionKeyPacket = *((SessionKeyPacket*)pkt_payload);
     const auto decrypt_res=m_decryptor->onNewPacketSessionKeyData(sessionKeyPacket.sessionKeyNonce, sessionKeyPacket.sessionKeyData);
 
     if(decrypt_res==wb::Decryptor::SESSION_VALID_NEW || decrypt_res==wb::Decryptor::SESSION_VALID_NOT_NEW)
@@ -452,64 +433,64 @@ void ExtTxRx::on_new_packet(const uint8_t wlan_idx,const uint8_t *pkt,const int 
       PerCardCalculators& this_wifi_card_calc= *m_per_card_calc.at(wlan_idx);
       if(m_options.debug_rssi>=2)
       {
-        m_console->debug("{}",all_rssi_to_string(parsedPacket->allAntennaValues));
+        //m_console->debug("{}",all_rssi_to_string(parsedPacket->allAntennaValues));
       }
 
       // assumes driver gives 1st and 2nd antenna as 2nd and 3rd value
-      if(parsedPacket->allAntennaValues.size()>=1)
-      {
-        const auto rssi=parsedPacket->allAntennaValues[0].rssi;
-        auto opt_minmaxavg= this_wifi_card_calc.card_rssi.add_and_recalculate_if_needed(rssi);
-        if(opt_minmaxavg.has_value())
-        {
-          if(m_options.debug_rssi>=1)
-          {
-            m_console->debug("Card{}:{}",wlan_idx, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
-          }
-        }
-      }
+      //if(parsedPacket->allAntennaValues.size()>=1)
+      //{
+      //  const auto rssi=parsedPacket->allAntennaValues[0].rssi;
+      //  auto opt_minmaxavg= this_wifi_card_calc.card_rssi.add_and_recalculate_if_needed(rssi);
+      //  if(opt_minmaxavg.has_value())
+      //  {
+      //    if(m_options.debug_rssi>=1)
+      //    {
+      //      m_console->debug("Card{}:{}",wlan_idx, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
+      //    }
+      //  }
+      //}
 
-      if(parsedPacket->allAntennaValues.size()>=2)
-      {
-        const auto rssi=parsedPacket->allAntennaValues[1].rssi;
-        auto opt_minmaxavg= this_wifi_card_calc.antenna1_rssi.add_and_recalculate_if_needed(rssi);
-        if(opt_minmaxavg.has_value()){
-          this_wifi_card_stats.antenna1_dbm=opt_minmaxavg.value().avg;
-          if(m_options.debug_rssi>=1){
-            m_console->debug("Card{} Antenna{}:{}",wlan_idx,0, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
-          }
-        }
-      }
+      //if(parsedPacket->allAntennaValues.size()>=2)
+      //{
+      //  const auto rssi=parsedPacket->allAntennaValues[1].rssi;
+      //  auto opt_minmaxavg= this_wifi_card_calc.antenna1_rssi.add_and_recalculate_if_needed(rssi);
+      //  if(opt_minmaxavg.has_value()){
+      //    this_wifi_card_stats.antenna1_dbm=opt_minmaxavg.value().avg;
+      //    if(m_options.debug_rssi>=1){
+      //      m_console->debug("Card{} Antenna{}:{}",wlan_idx,0, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
+      //    }
+      //  }
+      //}
 
-      if(parsedPacket->allAntennaValues.size()>=3)
-      {
-        const auto rssi=parsedPacket->allAntennaValues[2].rssi;
-        auto opt_minmaxavg= this_wifi_card_calc.antenna2_rssi.add_and_recalculate_if_needed(rssi);
-        if(opt_minmaxavg.has_value()){
-          this_wifi_card_stats.antenna2_dbm=opt_minmaxavg.value().avg;
-          if(m_options.debug_rssi>=1){
-            m_console->debug("Card{} Antenna{}:{}",wlan_idx,1, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
-          }
-        }
-      }
+      //if(parsedPacket->allAntennaValues.size()>=3)
+      //{
+      //  const auto rssi=parsedPacket->allAntennaValues[2].rssi;
+      //  auto opt_minmaxavg= this_wifi_card_calc.antenna2_rssi.add_and_recalculate_if_needed(rssi);
+      //  if(opt_minmaxavg.has_value()){
+      //    this_wifi_card_stats.antenna2_dbm=opt_minmaxavg.value().avg;
+      //    if(m_options.debug_rssi>=1){
+      //      m_console->debug("Card{} Antenna{}:{}",wlan_idx,1, RSSIAccumulator::min_max_avg_to_string(opt_minmaxavg.value(), false));
+      //    }
+      //  }
+      //}
 
       this_wifi_card_stats.count_p_valid++;
 
-      if(parsedPacket->mcs_index.has_value())
-      {
-        m_rx_stats.last_received_packet_mcs_index=parsedPacket->mcs_index.value();
-      }
+      //if(parsedPacket->mcs_index.has_value())
+      //{
+      //  m_rx_stats.last_received_packet_mcs_index=parsedPacket->mcs_index.value();
+      //}
 
-      if(parsedPacket->channel_width.has_value())
-      {
-        m_rx_stats.last_received_packet_channel_width=parsedPacket->channel_width.value();
-      }
+      //if(parsedPacket->channel_width.has_value())
+      //{
+      //  m_rx_stats.last_received_packet_channel_width=parsedPacket->channel_width.value();
+      //}
 
-      if(parsedPacket->signal_quality.has_value())
-      {
-        this_wifi_card_calc.signal_quality.add_signal_quality(parsedPacket->signal_quality.value());
-        this_wifi_card_stats.signal_quality=this_wifi_card_calc.signal_quality.get_current_signal_quality();
-      }
+      //if(parsedPacket->signal_quality.has_value())
+      //{
+      //  this_wifi_card_calc.signal_quality.add_signal_quality(parsedPacket->signal_quality.value());
+      //  this_wifi_card_stats.signal_quality=this_wifi_card_calc.signal_quality.get_current_signal_quality();
+      //}
 
       if(wlan_idx==0)
       {

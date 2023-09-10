@@ -2,8 +2,8 @@
 // Created by consti10 on 27.06.23.
 //
 
-#ifndef WIFIBROADCAST_WBTXRX_H
-#define WIFIBROADCAST_WBTXRX_H
+#ifndef WIFIBROADCAST_EXTTXRX_H
+#define WIFIBROADCAST_EXTTXRX_H
 
 #include <pcap/pcap.h>
 #include <sys/poll.h>
