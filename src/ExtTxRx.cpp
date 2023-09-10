@@ -231,7 +231,7 @@ void ExtTxRx::on_new_packet(const uint8_t wlan_idx,const uint8_t *pkt,const int 
   const auto& rx_iee80211_hdr_openhd = *((Ieee80211HeaderOpenHD*)pkt);
 
   const uint8_t *pkt_payload = pkt+24;
-  const size_t pkt_payload_size = pkt_len+28;
+  const size_t pkt_payload_size = pkt_len-28;
 
   m_rx_stats.count_p_any++;
   m_rx_stats.count_bytes_any+=pkt_payload_size;
@@ -340,7 +340,9 @@ void ExtTxRx::on_new_packet(const uint8_t wlan_idx,const uint8_t *pkt,const int 
       return;
     }
 
-    if (pkt_payload_size != sizeof(SessionKeyPacket))
+    int sesPktSize = sizeof(SessionKeyPacket);
+
+    if (pkt_payload_size != sesPktSize)
     {
       if(m_options.advanced_debugging_rx)
       {
