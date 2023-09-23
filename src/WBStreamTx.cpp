@@ -9,7 +9,7 @@
 #include "BlockSizeHelper.hpp"
 #include "SchedulingHelper.hpp"
 
-WBStreamTx::WBStreamTx(std::shared_ptr<WBTxRx> txrx,Options options1)
+WBStreamTx::WBStreamTx(std::shared_ptr<ExtTxRx> txrx,Options options1)
     :options(options1),
       m_txrx(txrx)
 {

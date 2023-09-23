@@ -14,7 +14,7 @@
 #include "FECStream.h"
 #include "SimpleStream.hpp"
 #include "HelperSources/TimeHelper.hpp"
-#include "WBTxRx.h"
+#include "ExtTxRx.h"
 
 /**
  * Transmitter for a (multiplexed) wifbroadcast stream
@@ -46,7 +46,7 @@ class WBStreamTx {
     // set sched_param = max realtime on the thread that dequeues and injects the packets
     bool dequeue_thread_max_realtime= true;
   };
-  WBStreamTx(std::shared_ptr<WBTxRx> txrx,Options options);
+  WBStreamTx(std::shared_ptr<ExtTxRx> txrx,Options options);
   WBStreamTx(const WBStreamTx&) = delete;
   WBStreamTx&operator=(const WBStreamTx&) = delete;
   ~WBStreamTx();
@@ -111,7 +111,7 @@ class WBStreamTx {
   int get_tx_queue_available_size_approximate();
  private:
   const Options options;
-  std::shared_ptr<WBTxRx> m_txrx;
+  std::shared_ptr<ExtTxRx> m_txrx;
   std::shared_ptr<spdlog::logger> m_console;
   // On the tx, either one of those two is active at the same time
   std::unique_ptr<FECEncoder> m_fec_encoder = nullptr;

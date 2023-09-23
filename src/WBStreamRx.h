@@ -13,7 +13,7 @@
 #include "HelperSources/TimeHelper.hpp"
 #include "HelperSources/UINT16SeqNrHelper.hpp"
 #include "SimpleStream.hpp"
-#include "WBTxRx.h"
+#include "ExtTxRx.h"
 #include "wifibroadcast_spdlog.h"
 
 /**
@@ -42,7 +42,7 @@ class WBStreamRx {
     // enable fec debug log, obviously only if fec is enbaled
     bool enable_fec_debug_log=false;
   };
-  WBStreamRx(std::shared_ptr<WBTxRx> txrx,Options options1);
+  WBStreamRx(std::shared_ptr<ExtTxRx> txrx,Options options1);
   ~WBStreamRx();
   WBStreamRx(const WBStreamRx &) = delete;
   WBStreamRx &operator=(const WBStreamRx &) = delete;
@@ -73,7 +73,7 @@ class WBStreamRx {
   void reset_stream_stats();
  private:
   const Options m_options;
-  std::shared_ptr<WBTxRx> m_txrx;
+  std::shared_ptr<ExtTxRx> m_txrx;
   std::shared_ptr<spdlog::logger> m_console;
   // Callback that is called with the decoded data
   WBStreamRx::OUTPUT_DATA_CALLBACK m_out_cb= nullptr;

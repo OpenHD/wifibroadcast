@@ -6,7 +6,7 @@
 
 #include <utility>
 
-WBStreamRx::WBStreamRx(std::shared_ptr<WBTxRx> txrx,Options options1)
+WBStreamRx::WBStreamRx(std::shared_ptr<ExtTxRx> txrx,Options options1)
     : m_txrx(txrx),
       m_options(options1)
 {
@@ -35,7 +35,7 @@ WBStreamRx::WBStreamRx(std::shared_ptr<WBTxRx> txrx,Options options1)
   auto cb_sesssion=[this](){
     this->on_new_session();
   };
-  auto handler=std::make_shared<WBTxRx::StreamRxHandler>(m_options.radio_port,cb_packet,cb_sesssion);
+  auto handler=std::make_shared<ExtTxRx::StreamRxHandler>(m_options.radio_port,cb_packet,cb_sesssion);
   m_txrx->rx_register_stream_handler(handler);
   if(m_options.enable_threading){
     m_packet_queue=std::make_unique<moodycamel::BlockingReaderWriterCircularBuffer<std::shared_ptr<EnqueuedPacket>>>(m_options.packet_queue_size);
