@@ -36,3 +36,6 @@ It makes debugging quite hard (you now have multiple applications for video tx, 
 makes threading and sequencing harder and also increases latency on the tx with the udp & rtp approach.
 Doing more in c++ and less scripting makes it easy to solve those issues.
 However, if you want to use scripting / udp badly, checkout [pre-unify-tx-rx](https://github.com/OpenHD/wifibroadcast/tree/pre-unify-tx-rx)
+
+# Internals
+[See internal folder](doc/README.md)
