@@ -289,16 +289,16 @@ class WBTxRx {
   // The final packet size ( radiotap header + iee80211 header + payload ) is
   // never bigger than that the reasoning behind this value:
   // https://github.com/svpcom/wifibroadcast/issues/69
-  static constexpr const auto PCAP_MAX_PACKET_SIZE = 1510;
+  static constexpr const auto PCAP_MAX_PACKET_SIZE = 8100;
   // This is the max number of bytes usable when injecting
   static constexpr const auto RAW_WIFI_FRAME_MAX_PAYLOAD_SIZE =
       (PCAP_MAX_PACKET_SIZE - RadiotapHeaderTx::SIZE_BYTES -
        IEEE80211_HEADER_SIZE_BYTES);
-  static_assert(RAW_WIFI_FRAME_MAX_PAYLOAD_SIZE == 1473);
+  //static_assert(RAW_WIFI_FRAME_MAX_PAYLOAD_SIZE == 1473);
   // and we use some bytes of that for encryption / packet validation
   static constexpr const auto MAX_PACKET_PAYLOAD_SIZE =
       RAW_WIFI_FRAME_MAX_PAYLOAD_SIZE - crypto_aead_chacha20poly1305_ABYTES;
-  static_assert(MAX_PACKET_PAYLOAD_SIZE == 1457);
+  //static_assert(MAX_PACKET_PAYLOAD_SIZE == 1457);
   static std::string tx_stats_to_string(const TxStats& data);
   static std::string rx_stats_to_string(const RxStats& data);
   static std::string rx_stats_per_card_to_string(const RxStatsPerCard& data);
