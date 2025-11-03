@@ -662,6 +662,12 @@ void WBTxRx::process_common_stream_packet(
 
     this_wifi_card_calc.rf_aggregator.on_valid_openhd_packet(
         parsedPacket.value());
+    const auto& rf_indicators =
+        this_wifi_card_calc.rf_aggregator.get_current().adapter;
+    this_wifi_card_stats.curr_rssi_dbm = rf_indicators.rssi_dbm;
+    this_wifi_card_stats.curr_noise_dbm = rf_indicators.noise_dbm;
+    this_wifi_card_stats.curr_signal_quality_perc =
+        rf_indicators.card_signal_quality_perc;
     if (m_options.rx_radiotap_debug_level == 3 ||
         m_options.rx_radiotap_debug_level == 4) {
       this_wifi_card_calc.rf_aggregator.debug_every_one_second();
@@ -967,9 +973,12 @@ std::string WBTxRx::rx_stats_to_string(const WBTxRx::RxStats& data) {
 }
 std::string WBTxRx::rx_stats_per_card_to_string(
     const WBTxRx::RxStatsPerCard& data) {
-  return fmt::format("RxStatsCard{}[packets total:{} valid:{}, loss:{}%]",
-                     data.card_index, data.count_p_any, data.count_p_valid,
-                     data.curr_packet_loss);
+  return fmt::format(
+      "RxStatsCard{}[packets total:{} valid:{}, loss:{}% rssi:{}dBm noise:{}dBm "
+      "quality:{}%]",
+      data.card_index, data.count_p_any, data.count_p_valid, data.curr_packet_loss,
+      static_cast<int>(data.curr_rssi_dbm), static_cast<int>(data.curr_noise_dbm),
+      static_cast<int>(data.curr_signal_quality_perc));
 }
 std::string WBTxRx::options_to_string(
     const std::vector<std::string>& wifi_cards,
