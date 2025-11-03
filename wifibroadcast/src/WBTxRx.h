@@ -248,6 +248,9 @@ class WBTxRx {
     int64_t count_p_any = 0;
     int64_t count_p_valid = 0;
     int32_t curr_packet_loss = -1;
+    int8_t curr_rssi_dbm = radiotap::rx::DBM_INVALID;
+    int8_t curr_noise_dbm = radiotap::rx::DBM_INVALID;
+    int8_t curr_signal_quality_perc = -1;
   };
   TxStats get_tx_stats();
   RxStats get_rx_stats();
