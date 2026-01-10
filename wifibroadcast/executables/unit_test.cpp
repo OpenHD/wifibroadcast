@@ -209,7 +209,7 @@ static void test_encrypt_decrypt_validate(const bool use_key_from_file,
   const std::string TEST_KEY_TYPE =
       use_key_from_file ? "key from file" : "default key";
   fmt::print("Testing {} with {}\n", TEST_TYPE, TEST_KEY_TYPE);
-  const std::string KEY_FILENAME = "../example_key/txrx.key";
+  const std::string KEY_FILENAME = "example_key/txrx.key";
   wb::KeyPairTxRx keyPairTxRx{};
   if (use_key_from_file) {
     auto tmp = wb::read_keypair_from_file(KEY_FILENAME);
