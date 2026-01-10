@@ -268,6 +268,7 @@ class WBTxRx {
   // Used by OpenHD on the ground to notify the user of disconnecting card(s)
   // (Hints at power issues)
   bool get_card_has_disconnected(int card_idx);
+  void set_enable_redundant_tx(bool enable);
   // For development only
   std::shared_ptr<DummyLink> get_dummy_link();
 
@@ -381,6 +382,7 @@ class WBTxRx {
   static constexpr auto HIGHEST_RSSI_ADJUSTMENT_INTERVAL =
       std::chrono::seconds(1);
   std::atomic_bool m_disable_all_transmissions = false;
+  std::atomic<bool> m_enable_redundant_tx = false;
   std::vector<bool> m_card_is_disconnected;
   BitrateCalculator m_tx_bitrate_calculator_excluding_overhead{};
   BitrateCalculator m_tx_bitrate_calculator_including_overhead{};

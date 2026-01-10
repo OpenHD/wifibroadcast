@@ -199,8 +199,20 @@ void WBTxRx::tx_inject_packet(const uint8_t stream_index, const uint8_t* data,
   // occurs)
   assert(data_len + crypto_aead_chacha20poly1305_ABYTES == ciphertext_len);
   // we inject the packet on whatever card has the highest rx rssi right now
-  const bool success =
-      inject_radiotap_packet(m_curr_tx_card.load(), packet_buff, packet_size);
+  bool success;
+  if (m_enable_redundant_tx) {
+    bool at_least_one_success = false;
+    for (int i = 0; i < m_wifi_cards.size(); i++) {
+      if (inject_radiotap_packet(i, packet_buff, packet_size)) {
+        at_least_one_success = true;
+      }
+    }
+    success = at_least_one_success;
+  } else {
+    success =
+        inject_radiotap_packet(m_curr_tx_card.load(), packet_buff, packet_size);
+  }
+
   if (success) {
     m_tx_stats.n_injected_bytes_excluding_overhead += data_len;
     m_tx_stats.n_injected_bytes_including_overhead += packet_size;
@@ -912,6 +924,10 @@ bool WBTxRx::get_card_has_disconnected(int card_idx) {
     return true;
   }
   return m_card_is_disconnected[card_idx];
+}
+
+void WBTxRx::set_enable_redundant_tx(bool enable) {
+  m_enable_redundant_tx = enable;
 }
 
 void WBTxRx::tx_reset_stats() {
