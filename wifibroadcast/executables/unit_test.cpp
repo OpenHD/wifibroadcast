@@ -325,6 +325,7 @@ static void test_manual_retransmission() {
     WBStreamTx::Options options_stream{};
     options_stream.enable_fec = false; // Easier to test with telemetry/plain packets
     options_stream.enable_retransmission = true;
+    options_stream.enable_crc = true;
     options_stream.radio_port = 5; // Arbitrary
 
     WBStreamTx stream_tx(txrx, options_stream, radiotap_header_holder_tx);
@@ -440,6 +441,7 @@ static void test_auto_retransmission() {
     WBStreamTx::Options options_stream_tx{};
     options_stream_tx.enable_fec = false;
     options_stream_tx.enable_retransmission = true;
+    options_stream_tx.enable_crc = true;
     options_stream_tx.radio_port = 5;
 
     WBStreamTx stream_tx(txrx_air, options_stream_tx, radiotap_header_holder);
@@ -448,6 +450,7 @@ static void test_auto_retransmission() {
     // Setup WBStreamRx on Gnd
     WBStreamRx::Options options_stream_rx{};
     options_stream_rx.enable_fec = false;
+    options_stream_rx.enable_crc = true;
     options_stream_rx.radio_port = 5;
     options_stream_rx.enable_threading = true; // Use threading to process queue
 

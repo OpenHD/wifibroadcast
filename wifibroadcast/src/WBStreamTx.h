@@ -55,6 +55,8 @@ class WBStreamTx {
     bool dequeue_thread_max_realtime = true;
     // Enable/Disable retransmissions
     bool enable_retransmission = false;
+    // Enable/Disable CRC check
+    bool enable_crc = false;
   };
   WBStreamTx(std::shared_ptr<WBTxRx> txrx, Options options,
              std::shared_ptr<RadiotapHeaderTxHolder> radiotap_header_holder);
