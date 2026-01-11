@@ -8,7 +8,6 @@
 
 #include "SchedulingHelper.hpp"
 #include "WBPacketHeader.h"
-#include "CRC.hpp"
 #include "../radiotap/RadiotapHeaderTxHolder.hpp"
 #include "../radiotap/RadiotapHeaderTx.hpp"
 
@@ -167,15 +166,6 @@ void WBStreamRx::internal_process_packet(const uint8_t *data, int data_len) {
   const uint8_t* payload = data + sizeof(WBPacketHeader);
   int payload_len = data_len - sizeof(WBPacketHeader);
 
-  // Verify CRC
-  if (m_options.enable_crc) {
-      uint32_t calc_crc = wifibroadcast::crc32(data + sizeof(uint32_t), data_len - sizeof(uint32_t));
-      if (header->uCRC != calc_crc) {
-          m_console->warn("CRC mismatch. Dropping packet.");
-          return;
-      }
-  }
-
   // Handle Retransmission Request (if we are the TX side listening to RX side requests)
   // NOTE: This logic is usually on the TX side. But if we reuse WBStreamRx for receiving telemetry on AIR, we might see this.
   // However, WBStreamTx logic added previously handles listening for requests.
@@ -244,17 +234,9 @@ void WBStreamRx::send_retransmission_request(uint32_t seq_num) {
     header.stream_packet_idx = seq_num; // Use this field to convey the requested sequence number
     header.total_length = sizeof(WBPacketHeader);
 
-    // Calc CRC (header only, no payload)
     // Create buffer
     std::vector<uint8_t> packet(sizeof(WBPacketHeader));
     memcpy(packet.data(), &header, sizeof(WBPacketHeader));
-
-    WBPacketHeader* hdr_ptr = (WBPacketHeader*)packet.data();
-    if (m_options.enable_crc) {
-        hdr_ptr->uCRC = wifibroadcast::crc32(packet.data() + sizeof(uint32_t), packet.size() - sizeof(uint32_t));
-    } else {
-        hdr_ptr->uCRC = 0;
-    }
 
     // Send using WBTxRx
     // Need a RadiotapHeaderTx. We can use a default one or create one.

@@ -10,7 +10,6 @@
 
 #include "BlockSizeHelper.hpp"
 #include "SchedulingHelper.hpp"
-#include "CRC.hpp"
 
 WBStreamTx::WBStreamTx(
     std::shared_ptr<WBTxRx> txrx, Options options1,
@@ -35,27 +34,18 @@ WBStreamTx::WBStreamTx(
           // Check if it's a retransmission request
            if (data_len >= (int)sizeof(WBPacketHeader)) {
                const WBPacketHeader* header = (const WBPacketHeader*)data;
-               // Basic CRC check for the request packet
-               bool crc_valid = true;
-               if (options.enable_crc) {
-                   uint32_t calc_crc = wifibroadcast::crc32(data + sizeof(uint32_t), data_len - sizeof(uint32_t));
-                   crc_valid = (header->uCRC == calc_crc);
-               }
+               if (header->packet_type == WB_PACKET_TYPE_RETRANSMISSION_REQ) {
+                   // Payload of Req is just the sequence number we want?
+                   // Or maybe we reused stream_packet_idx in the header?
+                   // Let's assume the missing sequence number is in stream_packet_idx for simplicity.
+                   // process_retransmission_request(header->stream_packet_idx);
 
-               if (crc_valid) {
-                   if (header->packet_type == WB_PACKET_TYPE_RETRANSMISSION_REQ) {
-                       // Payload of Req is just the sequence number we want?
-                       // Or maybe we reused stream_packet_idx in the header?
-                       // Let's assume the missing sequence number is in stream_packet_idx for simplicity.
-                       // process_retransmission_request(header->stream_packet_idx);
-
-                       // Actually, if we use the stream_packet_idx for the SEQUENCE NUMBER OF THE PACKET ITSELF (the request packet),
-                       // then we need the payload to contain the REQUESTED sequence number.
-                       // But the request packet is just a control packet.
-                       // Using stream_packet_idx for the requested sequence number is efficient use of space.
-                       // It implies "I am talking about packet X".
-                       process_retransmission_request(header->stream_packet_idx);
-                   }
+                   // Actually, if we use the stream_packet_idx for the SEQUENCE NUMBER OF THE PACKET ITSELF (the request packet),
+                   // then we need the payload to contain the REQUESTED sequence number.
+                   // But the request packet is just a control packet.
+                   // Using stream_packet_idx for the requested sequence number is efficient use of space.
+                   // It implies "I am talking about packet X".
+                   process_retransmission_request(header->stream_packet_idx);
                }
            }
       };
@@ -364,13 +354,6 @@ void WBStreamTx::prepare_and_send_packet(const uint8_t* data, int len, uint8_t p
 
         memcpy(new_packet.data() + sizeof(WBPacketHeader), data, len);
 
-        // Calculate CRC (skip uCRC field)
-        if (options.enable_crc) {
-            header->uCRC = wifibroadcast::crc32(new_packet.data() + sizeof(uint32_t), new_len - sizeof(uint32_t));
-        } else {
-            header->uCRC = 0;
-        }
-
         // Store in history if retransmission is enabled
         if (options.enable_retransmission) {
             SentPacket sent;
@@ -401,13 +384,6 @@ void WBStreamTx::process_retransmission_request(uint32_t sequence_number) {
             std::vector<uint8_t> retransmit_data = packet.data;
             WBPacketHeader* header = (WBPacketHeader*)retransmit_data.data();
             header->packet_flags |= WB_PACKET_FLAG_RETRANSMITTED;
-
-            // Recalculate CRC because flags changed
-            if (options.enable_crc) {
-                header->uCRC = wifibroadcast::crc32(retransmit_data.data() + sizeof(uint32_t), retransmit_data.size() - sizeof(uint32_t));
-            } else {
-                header->uCRC = 0;
-            }
 
             send_packet(retransmit_data.data(), retransmit_data.size());
             return;

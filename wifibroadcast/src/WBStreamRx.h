@@ -47,8 +47,6 @@ class WBStreamRx {
     bool enable_fec_debug_log = false;
     // dirty
     bool forward_gapped_fragments = true;
-    // Enable/Disable CRC check
-    bool enable_crc = false;
   };
   WBStreamRx(std::shared_ptr<WBTxRx> txrx, Options options1);
   ~WBStreamRx();
