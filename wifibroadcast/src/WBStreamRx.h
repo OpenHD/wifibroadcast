@@ -115,6 +115,12 @@ class WBStreamRx {
   bool m_process_data_thread_run = true;
   std::unique_ptr<std::thread> m_process_data_thread;
   void loop_process_data();
+
+  // Gap detection logic
+  uint32_t m_last_seq_num = 0;
+  bool m_first_packet_received = false;
+  void check_gap_and_request(uint32_t current_seq_num);
+  void send_retransmission_request(uint32_t seq_num);
 };
 
 #endif  // WIFIBROADCAST_WBSTREAMRX_H

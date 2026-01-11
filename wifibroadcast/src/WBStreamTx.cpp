@@ -10,6 +10,7 @@
 
 #include "BlockSizeHelper.hpp"
 #include "SchedulingHelper.hpp"
+#include "CRC.hpp"
 
 WBStreamTx::WBStreamTx(
     std::shared_ptr<WBTxRx> txrx, Options options1,
@@ -27,6 +28,39 @@ WBStreamTx::WBStreamTx(
   assert(m_console);
   m_console->info("WBTransmitter radio_port: {} fec:{} retransmission:{}", options.radio_port,
                   options.enable_fec ? "Y" : "N", options.enable_retransmission ? "Y" : "N");
+
+  // If retransmission enabled, register listener for requests
+  if (options.enable_retransmission) {
+      auto cb_packet = [this](uint64_t nonce, int wlan_index, const uint8_t *data, const int data_len) {
+          // Check if it's a retransmission request
+           if (data_len >= (int)sizeof(WBPacketHeader)) {
+               const WBPacketHeader* header = (const WBPacketHeader*)data;
+               // Basic CRC check for the request packet
+               uint32_t calc_crc = wifibroadcast::crc32(data + sizeof(uint32_t), data_len - sizeof(uint32_t));
+               if (header->uCRC == calc_crc) {
+                   if (header->packet_type == WB_PACKET_TYPE_RETRANSMISSION_REQ) {
+                       // Payload of Req is just the sequence number we want?
+                       // Or maybe we reused stream_packet_idx in the header?
+                       // Let's assume the missing sequence number is in stream_packet_idx for simplicity.
+                       // process_retransmission_request(header->stream_packet_idx);
+
+                       // Actually, if we use the stream_packet_idx for the SEQUENCE NUMBER OF THE PACKET ITSELF (the request packet),
+                       // then we need the payload to contain the REQUESTED sequence number.
+                       // But the request packet is just a control packet.
+                       // Using stream_packet_idx for the requested sequence number is efficient use of space.
+                       // It implies "I am talking about packet X".
+                       process_retransmission_request(header->stream_packet_idx);
+                   }
+               }
+           }
+      };
+      // We don't need session callback for this simple listener
+      auto cb_session = [](){};
+      auto handler = std::make_shared<WBTxRx::StreamRxHandler>(
+          options.radio_port, cb_packet, cb_session);
+      m_txrx->rx_register_stream_handler(handler);
+  }
+
   if (options.enable_fec) {
     // m_block_queue=std::make_unique<moodycamel::BlockingReaderWriterCircularBuffer<std::shared_ptr<EnqueuedBlock>>>(options.block_data_queue_size);
     m_block_queue =
@@ -319,10 +353,11 @@ void WBStreamTx::prepare_and_send_packet(const uint8_t* data, int len, uint8_t p
         std::lock_guard<std::mutex> lock(m_history_mutex);
         header->stream_packet_idx = m_current_sequence_number++;
         header->total_length = new_len;
-        // Simple CRC placeholder or calculation could go here
-        header->uCRC = 0;
 
         memcpy(new_packet.data() + sizeof(WBPacketHeader), data, len);
+
+        // Calculate CRC (skip uCRC field)
+        header->uCRC = wifibroadcast::crc32(new_packet.data() + sizeof(uint32_t), new_len - sizeof(uint32_t));
 
         // Store in history if retransmission is enabled
         if (options.enable_retransmission) {
@@ -354,6 +389,9 @@ void WBStreamTx::process_retransmission_request(uint32_t sequence_number) {
             std::vector<uint8_t> retransmit_data = packet.data;
             WBPacketHeader* header = (WBPacketHeader*)retransmit_data.data();
             header->packet_flags |= WB_PACKET_FLAG_RETRANSMITTED;
+
+            // Recalculate CRC because flags changed
+            header->uCRC = wifibroadcast::crc32(retransmit_data.data() + sizeof(uint32_t), retransmit_data.size() - sizeof(uint32_t));
 
             send_packet(retransmit_data.data(), retransmit_data.size());
             return;
