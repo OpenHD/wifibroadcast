@@ -14,7 +14,6 @@
 
 // Header structure close to Ruby's implementation but simplified for this task
 struct WBPacketHeader {
-    uint32_t uCRC;            // CRC for the packet
     uint8_t packet_flags;     // Flags (e.g., retransmitted)
     uint8_t packet_type;      // Type (Video, Telemetry, RC, etc.)
     uint32_t stream_packet_idx; // Sequence number for the stream

@@ -8,6 +8,8 @@
 
 #include "SchedulingHelper.hpp"
 #include "WBPacketHeader.h"
+#include "../radiotap/RadiotapHeaderTxHolder.hpp"
+#include "../radiotap/RadiotapHeaderTx.hpp"
 
 WBStreamRx::WBStreamRx(std::shared_ptr<WBTxRx> txrx, Options options1)
     : m_txrx(txrx), m_options(options1) {
@@ -164,12 +166,24 @@ void WBStreamRx::internal_process_packet(const uint8_t *data, int data_len) {
   const uint8_t* payload = data + sizeof(WBPacketHeader);
   int payload_len = data_len - sizeof(WBPacketHeader);
 
-  // In a real implementation, we would dispatch based on header->packet_type
-  // For now, we just pass the payload to the decoder, but we could check for retransmission flag
+  // Handle Retransmission Request (if we are the TX side listening to RX side requests)
+  // NOTE: This logic is usually on the TX side. But if we reuse WBStreamRx for receiving telemetry on AIR, we might see this.
+  // However, WBStreamTx logic added previously handles listening for requests.
+  // WBStreamRx is primarily for receiving data.
+
+  if (header->packet_type == WB_PACKET_TYPE_RETRANSMISSION_REQ) {
+      // This is a request. If we are an RX stream, we shouldn't really receive this unless we are debugging or in a loopback.
+      // Or if this WBStreamRx is used on the Air Unit to receive Uplink data, and the Uplink data contains Retransmission Requests.
+      // But typically Retransmission Requests are handled by the callback registered in WBStreamTx.
+      return;
+  }
 
   if (header->packet_flags & WB_PACKET_FLAG_RETRANSMITTED) {
       m_console->debug("Received retransmitted packet, seq: {}", header->stream_packet_idx);
   }
+
+  // Gap detection
+  check_gap_and_request(header->stream_packet_idx);
 
   if (m_options.enable_fec) {
     if (!FECDecoder::validate_packet_size(payload_len)) {
@@ -180,4 +194,64 @@ void WBStreamRx::internal_process_packet(const uint8_t *data, int data_len) {
   } else {
     m_fec_disabled_decoder->process_packet(payload, payload_len);
   }
+}
+
+void WBStreamRx::check_gap_and_request(uint32_t current_seq_num) {
+    if (!m_first_packet_received) {
+        m_first_packet_received = true;
+        m_last_seq_num = current_seq_num;
+        return;
+    }
+
+    // Handle wrap-around using int32_t logic
+    int32_t diff = (int32_t)(current_seq_num - m_last_seq_num);
+
+    if (diff > 1) {
+        // Gap detected
+        // Limit number of requests or range to avoid flooding
+        uint32_t missing_count = diff - 1;
+        if (missing_count > 10) missing_count = 10; // Cap at 10 to avoid huge bursts
+
+        for (uint32_t i = 1; i <= missing_count; i++) {
+            uint32_t missing_seq = m_last_seq_num + i;
+            m_console->debug("Detected gap. Requesting seq: {}", missing_seq);
+            send_retransmission_request(missing_seq);
+        }
+    }
+
+    // Update last sequence number
+    // Handle reordered packets? If current < last (diff <= 0), we might have received an old packet (or retransmission).
+    if (diff > 0) {
+        m_last_seq_num = current_seq_num;
+    }
+}
+
+void WBStreamRx::send_retransmission_request(uint32_t seq_num) {
+    // Construct packet
+    WBPacketHeader header;
+    header.packet_type = WB_PACKET_TYPE_RETRANSMISSION_REQ;
+    header.packet_flags = 0;
+    header.stream_packet_idx = seq_num; // Use this field to convey the requested sequence number
+    header.total_length = sizeof(WBPacketHeader);
+
+    // Create buffer
+    std::vector<uint8_t> packet(sizeof(WBPacketHeader));
+    memcpy(packet.data(), &header, sizeof(WBPacketHeader));
+
+    // Send using WBTxRx
+    // Need a RadiotapHeaderTx. We can use a default one or create one.
+    // WBTxRx::tx_inject_packet requires a RadiotapHeaderTx.
+    // We can't easily get one here without storing it or creating a default.
+    // Let's create a default one.
+
+    // Need a RadiotapHeaderTx.
+    RadiotapHeaderTx::UserSelectableParams params{};
+    // Default params usually fine for control packets
+    params.bandwidth = 20;
+    params.mcs_index = 0; // Low MCS for reliability
+
+    RadiotapHeaderTx radiotap_header(params);
+
+    // Use m_options.radio_port for sending?
+    m_txrx->tx_inject_packet(m_options.radio_port, packet.data(), packet.size(), radiotap_header, false);
 }

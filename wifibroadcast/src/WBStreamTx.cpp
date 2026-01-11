@@ -27,6 +27,35 @@ WBStreamTx::WBStreamTx(
   assert(m_console);
   m_console->info("WBTransmitter radio_port: {} fec:{} retransmission:{}", options.radio_port,
                   options.enable_fec ? "Y" : "N", options.enable_retransmission ? "Y" : "N");
+
+  // If retransmission enabled, register listener for requests
+  if (options.enable_retransmission) {
+      auto cb_packet = [this](uint64_t nonce, int wlan_index, const uint8_t *data, const int data_len) {
+          // Check if it's a retransmission request
+           if (data_len >= (int)sizeof(WBPacketHeader)) {
+               const WBPacketHeader* header = (const WBPacketHeader*)data;
+               if (header->packet_type == WB_PACKET_TYPE_RETRANSMISSION_REQ) {
+                   // Payload of Req is just the sequence number we want?
+                   // Or maybe we reused stream_packet_idx in the header?
+                   // Let's assume the missing sequence number is in stream_packet_idx for simplicity.
+                   // process_retransmission_request(header->stream_packet_idx);
+
+                   // Actually, if we use the stream_packet_idx for the SEQUENCE NUMBER OF THE PACKET ITSELF (the request packet),
+                   // then we need the payload to contain the REQUESTED sequence number.
+                   // But the request packet is just a control packet.
+                   // Using stream_packet_idx for the requested sequence number is efficient use of space.
+                   // It implies "I am talking about packet X".
+                   process_retransmission_request(header->stream_packet_idx);
+               }
+           }
+      };
+      // We don't need session callback for this simple listener
+      auto cb_session = [](){};
+      auto handler = std::make_shared<WBTxRx::StreamRxHandler>(
+          options.radio_port, cb_packet, cb_session);
+      m_txrx->rx_register_stream_handler(handler);
+  }
+
   if (options.enable_fec) {
     // m_block_queue=std::make_unique<moodycamel::BlockingReaderWriterCircularBuffer<std::shared_ptr<EnqueuedBlock>>>(options.block_data_queue_size);
     m_block_queue =
@@ -54,6 +83,9 @@ WBStreamTx::WBStreamTx(
 }
 
 WBStreamTx::~WBStreamTx() {
+  if (options.enable_retransmission) {
+      m_txrx->rx_unregister_stream_handler(options.radio_port);
+  }
   m_process_data_thread_run = false;
   if (m_process_data_thread && m_process_data_thread->joinable()) {
     m_process_data_thread->join();
@@ -319,8 +351,6 @@ void WBStreamTx::prepare_and_send_packet(const uint8_t* data, int len, uint8_t p
         std::lock_guard<std::mutex> lock(m_history_mutex);
         header->stream_packet_idx = m_current_sequence_number++;
         header->total_length = new_len;
-        // Simple CRC placeholder or calculation could go here
-        header->uCRC = 0;
 
         memcpy(new_packet.data() + sizeof(WBPacketHeader), data, len);
 
