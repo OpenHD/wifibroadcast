@@ -24,7 +24,7 @@ jobs:
       - name: Unit test 1
         run: |
           cd build
-          ./unit_test
+          sudo ./unit_test
       - name: Unit test 2
         run: |
           cd build
