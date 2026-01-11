@@ -1,4 +1,3 @@
-
 /*
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -23,6 +22,8 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include "../src//encryption/EncryptionFsUtils.h"
 #include "../src/HelperSources/Helper.hpp"
@@ -34,6 +35,9 @@
 #include "../src/fec/FECDecoder.h"
 #include "../src/fec/FECEncoder.h"
 #include "../src/wifibroadcast_spdlog.h"
+#include "../src/WBStreamTx.h"
+#include "../src/WBTxRx.h"
+#include "../src/WBPacketHeader.h"
 
 // Simple unit testing for the FEC lib that doesn't require wifi cards
 
@@ -297,6 +301,118 @@ static void test_encryption_serialize() {
   fmt::print("Serialize / Deserialize test passed\n");
 }
 
+static void test_retransmission() {
+    std::cout << "Testing Retransmission" << std::endl;
+
+    // Create a dummy card
+    auto card = wifibroadcast::create_card_emulate(true);
+    std::vector<wifibroadcast::WifiCard> cards;
+    cards.push_back(card);
+
+    // Create WBTxRx with dummy link
+    WBTxRx::Options options_txrx{};
+    options_txrx.tx_without_pcap = true; // Avoid real pcap
+    auto radiotap_header_holder_tx = std::make_shared<RadiotapHeaderTxHolder>();
+    std::shared_ptr<WBTxRx> txrx =
+        std::make_shared<WBTxRx>(cards, options_txrx, radiotap_header_holder_tx);
+
+    // Enable dummy link interception
+    auto dummy_link = txrx->get_dummy_link();
+    assert(dummy_link);
+
+    // Create WBStreamTx with retransmission enabled
+    WBStreamTx::Options options_stream{};
+    options_stream.enable_fec = false; // Easier to test with telemetry/plain packets
+    options_stream.enable_retransmission = true;
+    options_stream.radio_port = 5; // Arbitrary
+
+    WBStreamTx stream_tx(txrx, options_stream, radiotap_header_holder_tx);
+    stream_tx.set_encryption(false);
+
+    // Create the receiver dummy link BEFORE sending, to avoid race conditions (packet lost if sent before receiver binds)
+    auto dummy_link_rx = std::make_shared<DummyLink>(false); // Ground unit
+
+    // Create a dummy packet
+    std::string payload_str = "Hello Retransmission";
+    auto payload = std::make_shared<std::vector<uint8_t>>(payload_str.begin(), payload_str.end());
+
+    // Send packet
+    bool queued = stream_tx.try_enqueue_packet(payload);
+    assert(queued);
+
+    // Wait for the packet to be "sent" (processed by the thread)
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+    // The first packet should be available in the dummy link "channel"
+    // Since DummyLink uses fixed filenames based on air/gnd, `dummy_link_rx` should be able to read what `txrx` (acting as air) wrote.
+    // NOTE: This assumes `txrx` was initialized as AIR. `create_card_emulate(true)` suggests AIR.
+
+    // Let's read packets until we find ours (ignore session key packets)
+    std::shared_ptr<std::vector<uint8_t>> sent_packet = nullptr;
+    WBPacketHeader* header = nullptr;
+
+    for (int i=0; i<10; i++) {
+        sent_packet = dummy_link_rx->rx_radiotap();
+        if (sent_packet == nullptr) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
+        }
+        std::cout << "Received packet of size " << sent_packet->size() << std::endl;
+
+        std::string received_str(sent_packet->begin(), sent_packet->end());
+        size_t pos = received_str.find(payload_str);
+        if (pos != std::string::npos) {
+            // Found it
+            // Check WBPacketHeader
+            // The structure is WBPacketHeader + FECDisabledHeader + Payload
+            // WBPacketHeader size is sizeof(WBPacketHeader).
+            // FECDisabledHeader size is 8 bytes.
+            size_t header_pos = pos - sizeof(WBPacketHeader) - 8;
+            header = (WBPacketHeader*)(sent_packet->data() + header_pos);
+            break;
+        }
+    }
+
+    assert(sent_packet != nullptr);
+    assert(header != nullptr);
+
+    std::cout << "Packet Type: " << (int)header->packet_type << std::endl;
+    std::cout << "Packet Flags: " << (int)header->packet_flags << std::endl;
+    std::cout << "Sequence: " << header->stream_packet_idx << std::endl;
+
+    assert(header->packet_type == WB_PACKET_TYPE_TELEMETRY);
+    assert(header->packet_flags == 0);
+    uint32_t seq_num = header->stream_packet_idx;
+
+    // Request retransmission
+    std::cout << "Requesting retransmission of seq " << seq_num << std::endl;
+    stream_tx.process_retransmission_request(seq_num);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+    // Read the retransmitted packet
+    auto retransmitted_packet = dummy_link_rx->rx_radiotap();
+    assert(retransmitted_packet != nullptr);
+
+    // Validate retransmitted packet
+    std::string re_received_str(retransmitted_packet->begin(), retransmitted_packet->end());
+    size_t re_pos = re_received_str.find(payload_str);
+    assert(re_pos != std::string::npos);
+
+    // Adjust header position (account for FECDisabledHeader)
+    size_t re_header_pos = re_pos - sizeof(WBPacketHeader) - 8;
+    WBPacketHeader* re_header = (WBPacketHeader*)(retransmitted_packet->data() + re_header_pos);
+
+    std::cout << "Retransmitted Packet Type: " << (int)re_header->packet_type << std::endl;
+    std::cout << "Retransmitted Packet Flags: " << (int)re_header->packet_flags << std::endl;
+
+    assert(re_header->packet_type == WB_PACKET_TYPE_TELEMETRY);
+    assert((re_header->packet_flags & WB_PACKET_FLAG_RETRANSMITTED) != 0);
+    assert(re_header->stream_packet_idx == seq_num);
+
+    std::cout << "Retransmission Test Passed" << std::endl;
+}
+
 int main(int argc, char *argv[]) {
   std::cout << "Tests for Wifibroadcast\n";
   srand(time(NULL));
@@ -311,7 +427,7 @@ int main(int argc, char *argv[]) {
       default: /* '?' */
       show_usage:
         std::cout << "Usage: Unit tests for FEC and encryption. -m 0,1,2 test "
-                     "mode: 0==ALL, 1==FEC only 2==Encryption only\n";
+                     "mode: 0==ALL, 1==FEC only 2==Encryption only 3==Retransmission\n";
         return 1;
     }
   }
@@ -319,6 +435,10 @@ int main(int argc, char *argv[]) {
   test::test_nonce();
 
   try {
+    if (test_mode == 3) {
+        test_retransmission();
+        return 0;
+    }
     if (test_mode == 0 || test_mode == 1) {
       std::cout << "Testing FEC" << std::endl;
       // First test FEC itself
@@ -334,6 +454,9 @@ int main(int argc, char *argv[]) {
       test_encrypt_decrypt_validate(false, false);
       test_encrypt_decrypt_validate(false, true);
       test_encrypt_decrypt_validate(true, false);
+    }
+    if (test_mode == 0) {
+        test_retransmission();
     }
   } catch (std::runtime_error &e) {
     std::cerr << "Error: " << std::string(e.what());
