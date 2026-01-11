@@ -15,6 +15,8 @@
 #include "SimpleStream.hpp"
 #include "TimeHelper.hpp"
 #include "WBTxRx.h"
+#include "WBPacketHeader.h"
+#include <mutex>
 
 /**
  * Transmitter for a (multiplexed) wifbroadcast stream
@@ -51,6 +53,8 @@ class WBStreamTx {
     // set sched_param = max realtime on the thread that dequeues and injects
     // the packets
     bool dequeue_thread_max_realtime = true;
+    // Enable/Disable retransmissions
+    bool enable_retransmission = false;
   };
   WBStreamTx(std::shared_ptr<WBTxRx> txrx, Options options,
              std::shared_ptr<RadiotapHeaderTxHolder> radiotap_header_holder);
@@ -142,6 +146,9 @@ class WBStreamTx {
    */
   int get_tx_queue_available_size_approximate();
 
+  // Handle retransmission request
+  void process_retransmission_request(uint32_t sequence_number);
+
  private:
   const Options options;
   std::shared_ptr<WBTxRx> m_txrx;
@@ -203,6 +210,21 @@ class WBStreamTx {
   void dirty_process_enqueued_frame(const EnqueuedBlock& block);
   void send_packet(const uint8_t* packet, int packet_len);
   std::atomic<bool> m_enable_encryption = true;
+
+  // Retransmission logic
+  struct SentPacket {
+      uint32_t sequence_number;
+      std::vector<uint8_t> data;
+      uint8_t packet_type;
+      std::chrono::steady_clock::time_point timestamp;
+  };
+  std::deque<SentPacket> m_sent_packets_history;
+  std::mutex m_history_mutex;
+  uint32_t m_current_sequence_number = 0;
+  static constexpr size_t MAX_HISTORY_SIZE = 1000;
+
+  // Helper to prepend header and store in history
+  void prepare_and_send_packet(const uint8_t* data, int len, uint8_t packet_type);
 };
 
 #endif  // WIFIBROADCAST_WBSTREAMTX_H

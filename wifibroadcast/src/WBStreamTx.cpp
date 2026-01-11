@@ -5,6 +5,8 @@
 #include "WBStreamTx.h"
 
 #include <utility>
+#include <cstring>
+#include <algorithm>
 
 #include "BlockSizeHelper.hpp"
 #include "SchedulingHelper.hpp"
@@ -23,15 +25,16 @@ WBStreamTx::WBStreamTx(
         "wb_tx" + std::to_string(options.radio_port));
   }
   assert(m_console);
-  m_console->info("WBTransmitter radio_port: {} fec:{}", options.radio_port,
-                  options.enable_fec ? "Y" : "N");
+  m_console->info("WBTransmitter radio_port: {} fec:{} retransmission:{}", options.radio_port,
+                  options.enable_fec ? "Y" : "N", options.enable_retransmission ? "Y" : "N");
   if (options.enable_fec) {
     // m_block_queue=std::make_unique<moodycamel::BlockingReaderWriterCircularBuffer<std::shared_ptr<EnqueuedBlock>>>(options.block_data_queue_size);
     m_block_queue =
         std::make_unique<BlockQueueType>(options.block_data_queue_size);
     m_fec_encoder = std::make_unique<FECEncoder>();
     auto cb = [this](const uint8_t* packet, int packet_len) {
-      send_packet(packet, packet_len);
+      // Determine packet type based on FEC enablement - Video usually uses FEC
+      prepare_and_send_packet(packet, packet_len, WB_PACKET_TYPE_VIDEO);
     };
     m_fec_encoder->m_out_cb = cb;
   } else {
@@ -40,7 +43,8 @@ WBStreamTx::WBStreamTx(
         std::make_unique<PacketQueueType>(options.packet_data_queue_size);
     m_fec_disabled_encoder = std::make_unique<FECDisabledEncoder>();
     auto cb = [this](const uint8_t* packet, int packet_len) {
-      send_packet(packet, packet_len);
+        // Telemetry usually doesn't use FEC
+      prepare_and_send_packet(packet, packet_len, WB_PACKET_TYPE_TELEMETRY);
     };
     m_fec_disabled_encoder->outputDataCallback = cb;
   }
@@ -261,7 +265,7 @@ void WBStreamTx::process_enqueued_packet(
   auto buff = m_fec_disabled_encoder->encode_packet_buffer(packet.data->data(),
                                                            packet.data->size());
   for (int i = 0; i < packet.n_injections; i++) {
-    send_packet(buff.data(), buff.size());
+    prepare_and_send_packet(buff.data(), buff.size(), WB_PACKET_TYPE_TELEMETRY);
   }
   // m_fec_disabled_encoder->encode_packet_cb(packet.data->data(),packet.data->size());
 }
@@ -300,6 +304,61 @@ void WBStreamTx::send_packet(const uint8_t* packet, int packet_len) {
                            radiotap_header, encrypt);
   m_n_injected_packets++;
   m_count_bytes_data_injected += packet_len;
+}
+
+void WBStreamTx::prepare_and_send_packet(const uint8_t* data, int len, uint8_t packet_type) {
+    // Construct new packet with WBPacketHeader
+    size_t new_len = sizeof(WBPacketHeader) + len;
+    std::vector<uint8_t> new_packet(new_len);
+
+    WBPacketHeader* header = (WBPacketHeader*)new_packet.data();
+    header->packet_type = packet_type;
+    header->packet_flags = 0;
+
+    {
+        std::lock_guard<std::mutex> lock(m_history_mutex);
+        header->stream_packet_idx = m_current_sequence_number++;
+        header->total_length = new_len;
+        // Simple CRC placeholder or calculation could go here
+        header->uCRC = 0;
+
+        memcpy(new_packet.data() + sizeof(WBPacketHeader), data, len);
+
+        // Store in history if retransmission is enabled
+        if (options.enable_retransmission) {
+            SentPacket sent;
+            sent.sequence_number = header->stream_packet_idx;
+            sent.data = new_packet;
+            sent.packet_type = packet_type;
+            sent.timestamp = std::chrono::steady_clock::now();
+
+            m_sent_packets_history.push_back(sent);
+            if (m_sent_packets_history.size() > MAX_HISTORY_SIZE) {
+                m_sent_packets_history.pop_front();
+            }
+        }
+    }
+
+    send_packet(new_packet.data(), new_packet.size());
+}
+
+void WBStreamTx::process_retransmission_request(uint32_t sequence_number) {
+    if (!options.enable_retransmission) return;
+
+    std::lock_guard<std::mutex> lock(m_history_mutex);
+    for (const auto& packet : m_sent_packets_history) {
+        if (packet.sequence_number == sequence_number) {
+            // Found packet, re-send it
+            // We need to modify the flags to indicate retransmission
+            // Copy data to modify
+            std::vector<uint8_t> retransmit_data = packet.data;
+            WBPacketHeader* header = (WBPacketHeader*)retransmit_data.data();
+            header->packet_flags |= WB_PACKET_FLAG_RETRANSMITTED;
+
+            send_packet(retransmit_data.data(), retransmit_data.size());
+            return;
+        }
+    }
 }
 
 int WBStreamTx::get_tx_queue_available_size_approximate() {

@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "SchedulingHelper.hpp"
+#include "WBPacketHeader.h"
 
 WBStreamRx::WBStreamRx(std::shared_ptr<WBTxRx> txrx, Options options1)
     : m_txrx(txrx), m_options(options1) {
@@ -153,13 +154,30 @@ void WBStreamRx::set_on_fec_block_done_cb(WBStreamRx::ON_BLOCK_DONE_CB cb) {
 }
 
 void WBStreamRx::internal_process_packet(const uint8_t *data, int data_len) {
+  // Strip WBPacketHeader if present
+  if (data_len < (int)sizeof(WBPacketHeader)) {
+      m_console->debug("Packet too short for header: {}", data_len);
+      return;
+  }
+
+  const WBPacketHeader* header = (const WBPacketHeader*)data;
+  const uint8_t* payload = data + sizeof(WBPacketHeader);
+  int payload_len = data_len - sizeof(WBPacketHeader);
+
+  // In a real implementation, we would dispatch based on header->packet_type
+  // For now, we just pass the payload to the decoder, but we could check for retransmission flag
+
+  if (header->packet_flags & WB_PACKET_FLAG_RETRANSMITTED) {
+      m_console->debug("Received retransmitted packet, seq: {}", header->stream_packet_idx);
+  }
+
   if (m_options.enable_fec) {
-    if (!FECDecoder::validate_packet_size(data_len)) {
-      m_console->debug("invalid fec packet size {}", data_len);
+    if (!FECDecoder::validate_packet_size(payload_len)) {
+      m_console->debug("invalid fec packet size {}", payload_len);
       return;
     }
-    m_fec_decoder->process_valid_packet(data, data_len);
+    m_fec_decoder->process_valid_packet(payload, payload_len);
   } else {
-    m_fec_disabled_decoder->process_packet(data, data_len);
+    m_fec_disabled_decoder->process_packet(payload, payload_len);
   }
 }
