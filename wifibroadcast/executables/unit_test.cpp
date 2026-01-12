@@ -459,6 +459,7 @@ static void test_auto_retransmission() {
   options_stream_rx.enable_fec = false;
   options_stream_rx.radio_port = 5;
   options_stream_rx.enable_threading = true;  // Use threading to process queue
+  options_stream_rx.enable_retransmission = true;
 
   WBStreamRx stream_rx(txrx_gnd, options_stream_rx);
 
