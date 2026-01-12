@@ -129,8 +129,7 @@ void DummyLink::loop_rx() {
     // auto packet= read_data(m_fd_rx);
     // auto size=recvfrom(fd, buff->data(), buff->size(), MSG_DONTWAIT, NULL,
     // NULL);
-    auto size =
-        recv(m_fd_rx, read_buffer->data(), read_buffer->size(), MSG_WAITALL);
+    auto size = recv(m_fd_rx, read_buffer->data(), read_buffer->size(), 0);
     if (size > 0) {
       auto packet = std::make_shared<std::vector<uint8_t>>(
           read_buffer->data(), read_buffer->data() + size);
