@@ -35,7 +35,7 @@ class DummyLink {
   std::string m_fn_rx;
   std::unique_ptr<std::thread> m_receive_thread;
   void loop_rx();
-  std::atomic<bool> m_keep_receiving = true;
+  bool m_keep_receiving = true;
   // Drop packets with a probability of 5%
   bool should_drop_packet();
   int next_random_number_0_100() { return m_dist100(m_mt); }
