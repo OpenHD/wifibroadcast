@@ -259,9 +259,8 @@ void WBStreamRx::check_gap_and_request(uint8_t packet_type,
 
     if (is_retransmission_enabled_for_packet_type(packet_type)) {
       m_n_missing_packets.fetch_add(missing_count, std::memory_order_relaxed);
-      const int retries =
-          std::max(1, m_retransmission_request_retries.load(
-                          std::memory_order_relaxed));
+      const int retries = std::max(
+          1, m_retransmission_request_retries.load(std::memory_order_relaxed));
       for (uint32_t i = 1; i <= missing_count; i++) {
         uint32_t missing_seq = last_seq + i;
         m_console->debug("Detected gap. Requesting seq: {}", missing_seq);

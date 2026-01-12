@@ -43,17 +43,15 @@ WBStreamTx::WBStreamTx(
           if (data_len >= (int)(sizeof(WBPacketHeader) + sizeof(uint8_t))) {
             requested_packet_type = *(data + sizeof(WBPacketHeader));
           }
-          if (data_len >=
-              (int)(sizeof(WBPacketHeader) + sizeof(uint8_t) +
-                    sizeof(uint16_t))) {
-            memcpy(&request_index, data + sizeof(WBPacketHeader) +
-                                       sizeof(uint8_t),
+          if (data_len >= (int)(sizeof(WBPacketHeader) + sizeof(uint8_t) +
+                                sizeof(uint16_t))) {
+            memcpy(&request_index,
+                   data + sizeof(WBPacketHeader) + sizeof(uint8_t),
                    sizeof(uint16_t));
           }
           // Use stream_packet_idx for the requested sequence number.
-          process_retransmission_request(requested_packet_type,
-                                         header->stream_packet_idx,
-                                         request_index);
+          process_retransmission_request(
+              requested_packet_type, header->stream_packet_idx, request_index);
         }
       }
     };

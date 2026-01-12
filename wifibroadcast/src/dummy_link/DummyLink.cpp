@@ -4,9 +4,9 @@
 
 #include "DummyLink.h"
 
-#include <poll.h>
 #include <fcntl.h>
 #include <memory.h>
+#include <poll.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/stat.h>

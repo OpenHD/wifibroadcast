@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/test_dummy_link.dir/wifibroadcast/executables/test_dummy_link.cpp.o -o test_dummy_link  libwifibroadcast.a /usr/lib/x86_64-linux-gnu/libpcap.so /usr/lib/x86_64-linux-gnu/libsodium.so /usr/lib/x86_64-linux-gnu/libspdlog.so.1.9.2 /usr/lib/x86_64-linux-gnu/libfmt.so.8.1.1 -Wl,--as-needed 

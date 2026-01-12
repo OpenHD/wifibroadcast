@@ -8,8 +8,8 @@
 #include <array>
 #include <mutex>
 #include <queue>
-#include <unordered_map>
 #include <thread>
+#include <unordered_map>
 #include <variant>
 
 #include "../fec/FEC.h"
@@ -84,8 +84,9 @@ class WBStreamTx {
    */
   bool try_enqueue_packet(std::shared_ptr<std::vector<uint8_t>> packet,
                           int n_injections = 1);
-  bool try_enqueue_packet_with_type(std::shared_ptr<std::vector<uint8_t>> packet,
-                                    int n_injections, uint8_t packet_type);
+  bool try_enqueue_packet_with_type(
+      std::shared_ptr<std::vector<uint8_t>> packet, int n_injections,
+      uint8_t packet_type);
   // OpenHD - if the telemetry queue runs full, instead of dropping the most
   // recent packet, we clear all previous packets, then enqueue the new one.
   int enqueue_packet_dropping(std::shared_ptr<std::vector<uint8_t>> packet,
