@@ -5,6 +5,9 @@
 #ifndef WIFIBROADCAST_WBSTREAMRX_H
 #define WIFIBROADCAST_WBSTREAMRX_H
 
+#include <array>
+#include <atomic>
+
 #include "../fec/FEC.h"
 #include "../fec/FECDecoder.h"
 #include "FunkyQueue.h"
@@ -47,6 +50,12 @@ class WBStreamRx {
     bool enable_fec_debug_log = false;
     // dirty
     bool forward_gapped_fragments = true;
+    // Enable/Disable retransmission requests for this stream
+    bool enable_retransmission = false;
+    // Bitmask of packet types eligible for retransmission (1 << type)
+    uint8_t retransmission_packet_type_mask = 0;
+    // Retransmission request repeats for each missing packet
+    int retransmission_request_retries = 1;
   };
   WBStreamRx(std::shared_ptr<WBTxRx> txrx, Options options1);
   ~WBStreamRx();
@@ -59,6 +68,9 @@ class WBStreamRx {
     int curr_in_packets_per_second = 0;
     int curr_in_bits_per_second = 0;
     int curr_out_bits_per_second = 0;
+    int curr_missing_packets_per_second = 0;
+    int curr_retransmission_requests_per_second = 0;
+    int curr_retransmission_packets_per_second = 0;
   };
   Statistics get_latest_stats();
   // matches FECDecoder
@@ -84,6 +96,7 @@ class WBStreamRx {
                              int n_fragments_forwarded)>
       ON_BLOCK_DONE_CB;
   void set_on_fec_block_done_cb(ON_BLOCK_DONE_CB cb);
+  void set_retransmission_request_retries(int retries);
 
  private:
   const Options m_options;
@@ -94,10 +107,16 @@ class WBStreamRx {
   int64_t m_n_input_packets = 0;
   int64_t m_n_input_bytes = 0;
   std::atomic<int64_t> m_n_output_bytes = 0;
+  std::atomic<int64_t> m_n_missing_packets = 0;
+  std::atomic<int64_t> m_n_retransmission_requests = 0;
+  std::atomic<int64_t> m_n_retransmission_packets = 0;
   BitrateCalculator m_input_bitrate_calculator{};
   PacketsPerSecondCalculator m_input_packets_per_second_calculator{};
   // for calculating the current rx bitrate
   BitrateCalculator m_received_bitrate_calculator{};
+  PacketsPerSecondCalculator m_missing_packets_per_second_calculator{};
+  PacketsPerSecondCalculator m_retransmission_requests_per_second_calculator{};
+  PacketsPerSecondCalculator m_retransmission_packets_per_second_calculator{};
   // On the rx, either one of those two is active at the same time.
   std::unique_ptr<FECDecoder> m_fec_decoder = nullptr;
   std::unique_ptr<FECDisabledDecoder> m_fec_disabled_decoder = nullptr;
@@ -117,10 +136,13 @@ class WBStreamRx {
   void loop_process_data();
 
   // Gap detection logic
-  uint32_t m_last_seq_num = 0;
-  bool m_first_packet_received = false;
-  void check_gap_and_request(uint32_t current_seq_num);
-  void send_retransmission_request(uint32_t seq_num);
+  std::array<uint32_t, 256> m_last_seq_num_by_type{};
+  std::array<bool, 256> m_first_packet_received_by_type{};
+  void check_gap_and_request(uint8_t packet_type, uint32_t current_seq_num);
+  void send_retransmission_request(uint8_t packet_type, uint32_t seq_num);
+  bool is_retransmission_enabled_for_packet_type(uint8_t packet_type) const;
+  std::atomic<int> m_retransmission_request_retries = 1;
+  uint16_t m_request_index_counter = 0;
 };
 
 #endif  // WIFIBROADCAST_WBSTREAMRX_H

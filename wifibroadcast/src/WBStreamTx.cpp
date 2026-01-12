@@ -25,6 +25,7 @@ WBStreamTx::WBStreamTx(
         "wb_tx" + std::to_string(options.radio_port));
   }
   assert(m_console);
+  m_max_history_size_by_type.fill(DEFAULT_HISTORY_SIZE);
   m_console->info("WBTransmitter radio_port: {} fec:{} retransmission:{}",
                   options.radio_port, options.enable_fec ? "Y" : "N",
                   options.enable_retransmission ? "Y" : "N");
@@ -37,19 +38,22 @@ WBStreamTx::WBStreamTx(
       if (data_len >= (int)sizeof(WBPacketHeader)) {
         const WBPacketHeader* header = (const WBPacketHeader*)data;
         if (header->packet_type == WB_PACKET_TYPE_RETRANSMISSION_REQ) {
-          // Payload of Req is just the sequence number we want?
-          // Or maybe we reused stream_packet_idx in the header?
-          // Let's assume the missing sequence number is in stream_packet_idx
-          // for simplicity.
-          // process_retransmission_request(header->stream_packet_idx);
-
-          // Actually, if we use the stream_packet_idx for the SEQUENCE NUMBER
-          // OF THE PACKET ITSELF (the request packet), then we need the payload
-          // to contain the REQUESTED sequence number. But the request packet is
-          // just a control packet. Using stream_packet_idx for the requested
-          // sequence number is efficient use of space. It implies "I am talking
-          // about packet X".
-          process_retransmission_request(header->stream_packet_idx);
+          uint8_t requested_packet_type = options.default_packet_type;
+          uint16_t request_index = 0;
+          if (data_len >= (int)(sizeof(WBPacketHeader) + sizeof(uint8_t))) {
+            requested_packet_type = *(data + sizeof(WBPacketHeader));
+          }
+          if (data_len >=
+              (int)(sizeof(WBPacketHeader) + sizeof(uint8_t) +
+                    sizeof(uint16_t))) {
+            memcpy(&request_index, data + sizeof(WBPacketHeader) +
+                                       sizeof(uint8_t),
+                   sizeof(uint16_t));
+          }
+          // Use stream_packet_idx for the requested sequence number.
+          process_retransmission_request(requested_packet_type,
+                                         header->stream_packet_idx,
+                                         request_index);
         }
       }
     };
@@ -67,7 +71,7 @@ WBStreamTx::WBStreamTx(
     m_fec_encoder = std::make_unique<FECEncoder>();
     auto cb = [this](const uint8_t* packet, int packet_len) {
       // Determine packet type based on FEC enablement - Video usually uses FEC
-      prepare_and_send_packet(packet, packet_len, WB_PACKET_TYPE_VIDEO);
+      prepare_and_send_packet(packet, packet_len, options.default_packet_type);
     };
     m_fec_encoder->m_out_cb = cb;
   } else {
@@ -77,7 +81,7 @@ WBStreamTx::WBStreamTx(
     m_fec_disabled_encoder = std::make_unique<FECDisabledEncoder>();
     auto cb = [this](const uint8_t* packet, int packet_len) {
       // Telemetry usually doesn't use FEC
-      prepare_and_send_packet(packet, packet_len, WB_PACKET_TYPE_TELEMETRY);
+      prepare_and_send_packet(packet, packet_len, options.default_packet_type);
     };
     m_fec_disabled_encoder->outputDataCallback = cb;
   }
@@ -98,12 +102,20 @@ WBStreamTx::~WBStreamTx() {
 
 bool WBStreamTx::try_enqueue_packet(
     std::shared_ptr<std::vector<uint8_t>> packet, int n_injections) {
+  return try_enqueue_packet_with_type(std::move(packet), n_injections,
+                                      options.default_packet_type);
+}
+
+bool WBStreamTx::try_enqueue_packet_with_type(
+    std::shared_ptr<std::vector<uint8_t>> packet, int n_injections,
+    uint8_t packet_type) {
   assert(!options.enable_fec);
   m_n_input_packets++;
   m_count_bytes_data_provided += packet->size();
   auto item = std::make_shared<EnqueuedPacket>();
   item->data = std::move(packet);
   item->n_injections = n_injections;
+  item->packet_type = packet_type;
   const bool res = m_packet_queue->try_enqueue(item);
   if (!res) {
     m_n_dropped_packets++;
@@ -113,12 +125,20 @@ bool WBStreamTx::try_enqueue_packet(
 
 int WBStreamTx::enqueue_packet_dropping(
     std::shared_ptr<std::vector<uint8_t>> packet, int n_injections) {
+  return enqueue_packet_dropping_with_type(std::move(packet), n_injections,
+                                           options.default_packet_type);
+}
+
+int WBStreamTx::enqueue_packet_dropping_with_type(
+    std::shared_ptr<std::vector<uint8_t>> packet, int n_injections,
+    uint8_t packet_type) {
   assert(!options.enable_fec);
   m_n_input_packets++;
   m_count_bytes_data_provided += packet->size();
   auto item = std::make_shared<EnqueuedPacket>();
   item->data = std::move(packet);
   item->n_injections = n_injections;
+  item->packet_type = packet_type;
   const int n_dropped = m_packet_queue->enqueue_or_clear_enqueue(item);
   if (n_dropped > 0) {
     m_n_dropped_packets += n_dropped;
@@ -301,7 +321,7 @@ void WBStreamTx::process_enqueued_packet(
   auto buff = m_fec_disabled_encoder->encode_packet_buffer(packet.data->data(),
                                                            packet.data->size());
   for (int i = 0; i < packet.n_injections; i++) {
-    prepare_and_send_packet(buff.data(), buff.size(), WB_PACKET_TYPE_TELEMETRY);
+    prepare_and_send_packet(buff.data(), buff.size(), packet.packet_type);
   }
   // m_fec_disabled_encoder->encode_packet_cb(packet.data->data(),packet.data->size());
 }
@@ -354,22 +374,27 @@ void WBStreamTx::prepare_and_send_packet(const uint8_t* data, int len,
 
   {
     std::lock_guard<std::mutex> lock(m_history_mutex);
-    header->stream_packet_idx = m_current_sequence_number++;
+    auto& seq = m_sequence_numbers_by_type[packet_type];
+    header->stream_packet_idx = seq++;
     header->total_length = new_len;
 
     memcpy(new_packet.data() + sizeof(WBPacketHeader), data, len);
 
     // Store in history if retransmission is enabled
-    if (options.enable_retransmission) {
+    if (is_retransmission_enabled_for_packet_type(packet_type)) {
       SentPacket sent;
       sent.sequence_number = header->stream_packet_idx;
       sent.data = new_packet;
       sent.packet_type = packet_type;
       sent.timestamp = std::chrono::steady_clock::now();
 
-      m_sent_packets_history.push_back(sent);
-      if (m_sent_packets_history.size() > MAX_HISTORY_SIZE) {
-        m_sent_packets_history.pop_front();
+      auto& history = m_sent_packets_history_by_type[packet_type];
+      history.push_back(sent);
+      auto& history_limit = m_max_history_size_by_type[packet_type];
+      while (history.size() > history_limit) {
+        const auto old_seq = history.front().sequence_number;
+        history.pop_front();
+        m_seen_retransmission_requests[packet_type].erase(old_seq);
       }
     }
   }
@@ -377,12 +402,21 @@ void WBStreamTx::prepare_and_send_packet(const uint8_t* data, int len,
   send_packet(new_packet.data(), new_packet.size());
 }
 
-void WBStreamTx::process_retransmission_request(uint32_t sequence_number) {
-  if (!options.enable_retransmission) return;
+void WBStreamTx::process_retransmission_request(uint8_t packet_type,
+                                                uint32_t sequence_number,
+                                                uint16_t request_index) {
+  if (!is_retransmission_enabled_for_packet_type(packet_type)) return;
 
   std::lock_guard<std::mutex> lock(m_history_mutex);
-  for (const auto& packet : m_sent_packets_history) {
-    if (packet.sequence_number == sequence_number) {
+  auto& seen_requests = m_seen_retransmission_requests[packet_type];
+  if (seen_requests.find(sequence_number) != seen_requests.end()) {
+    return;
+  }
+  seen_requests.emplace(sequence_number, request_index);
+  const auto& history = m_sent_packets_history_by_type[packet_type];
+  for (const auto& packet : history) {
+    if (packet.packet_type == packet_type &&
+        packet.sequence_number == sequence_number) {
       // Found packet, re-send it
       // We need to modify the flags to indicate retransmission
       // Copy data to modify
@@ -401,4 +435,32 @@ int WBStreamTx::get_tx_queue_available_size_approximate() {
   // m_packet_queue->size_approx(); return (int)ret;
   if (options.enable_fec) return m_block_queue->get_current_size();
   return m_packet_queue->get_current_size();
+}
+
+bool WBStreamTx::is_retransmission_enabled_for_packet_type(
+    uint8_t packet_type) const {
+  if (!options.enable_retransmission) return false;
+  if (options.retransmission_packet_type_mask == 0) {
+    return packet_type == options.default_packet_type;
+  }
+  return (options.retransmission_packet_type_mask & (1u << packet_type)) != 0;
+}
+
+void WBStreamTx::set_max_history_size_for_type(uint8_t packet_type,
+                                               size_t max_size) {
+  if (max_size < 1) {
+    max_size = 1;
+  }
+  std::lock_guard<std::mutex> lock(m_history_mutex);
+  if (m_max_history_size_by_type[packet_type] == max_size) {
+    return;
+  }
+  m_max_history_size_by_type[packet_type] = max_size;
+  auto& history = m_sent_packets_history_by_type[packet_type];
+  auto& seen_requests = m_seen_retransmission_requests[packet_type];
+  while (history.size() > m_max_history_size_by_type[packet_type]) {
+    const auto old_seq = history.front().sequence_number;
+    history.pop_front();
+    seen_requests.erase(old_seq);
+  }
 }

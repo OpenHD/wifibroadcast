@@ -4,6 +4,7 @@
 
 #include "WBStreamRx.h"
 
+#include <algorithm>
 #include <utility>
 
 #include "../radiotap/RadiotapHeaderTx.hpp"
@@ -43,6 +44,12 @@ WBStreamRx::WBStreamRx(std::shared_ptr<WBTxRx> txrx, Options options1)
   auto handler = std::make_shared<WBTxRx::StreamRxHandler>(
       m_options.radio_port, cb_packet, cb_sesssion);
   m_txrx->rx_register_stream_handler(handler);
+  if (m_options.retransmission_request_retries < 1) {
+    m_retransmission_request_retries.store(1, std::memory_order_relaxed);
+  } else {
+    m_retransmission_request_retries.store(
+        m_options.retransmission_request_retries, std::memory_order_relaxed);
+  }
   if (m_options.enable_threading) {
     m_packet_queue =
         std::make_unique<PacketQueueType>(m_options.packet_queue_size);
@@ -92,6 +99,9 @@ void WBStreamRx::on_new_session() {
     m_fec_disabled_decoder->reset_packets_map();
   }
   reset_stream_stats();
+  m_first_packet_received_by_type.fill(false);
+  m_last_seq_num_by_type.fill(0);
+  m_request_index_counter = 0;
 }
 
 void WBStreamRx::loop_process_data() {
@@ -130,6 +140,15 @@ WBStreamRx::Statistics WBStreamRx::get_latest_stats() {
   ret.curr_out_bits_per_second =
       m_received_bitrate_calculator.get_last_or_recalculate(
           m_n_output_bytes, std::chrono::seconds(2));
+  ret.curr_missing_packets_per_second =
+      m_missing_packets_per_second_calculator.get_last_or_recalculate(
+          m_n_missing_packets.load(), std::chrono::seconds(2));
+  ret.curr_retransmission_requests_per_second =
+      m_retransmission_requests_per_second_calculator.get_last_or_recalculate(
+          m_n_retransmission_requests.load(), std::chrono::seconds(2));
+  ret.curr_retransmission_packets_per_second =
+      m_retransmission_packets_per_second_calculator.get_last_or_recalculate(
+          m_n_retransmission_packets.load(), std::chrono::seconds(2));
   return ret;
 }
 
@@ -149,10 +168,24 @@ WBStreamRx::FECRxStats2 WBStreamRx::get_latest_fec_stats() {
 void WBStreamRx::reset_stream_stats() {
   m_n_input_bytes = 0;
   m_n_input_packets = 0;
+  m_n_output_bytes.store(0, std::memory_order_relaxed);
+  m_n_missing_packets.store(0, std::memory_order_relaxed);
+  m_n_retransmission_requests.store(0, std::memory_order_relaxed);
+  m_n_retransmission_packets.store(0, std::memory_order_relaxed);
+  m_first_packet_received_by_type.fill(false);
+  m_last_seq_num_by_type.fill(0);
+  m_request_index_counter = 0;
 }
 
 void WBStreamRx::set_on_fec_block_done_cb(WBStreamRx::ON_BLOCK_DONE_CB cb) {
   m_fec_decoder->m_block_done_cb = cb;
+}
+
+void WBStreamRx::set_retransmission_request_retries(int retries) {
+  if (retries < 1) {
+    retries = 1;
+  }
+  m_retransmission_request_retries.store(retries, std::memory_order_relaxed);
 }
 
 void WBStreamRx::internal_process_packet(const uint8_t *data, int data_len) {
@@ -181,13 +214,15 @@ void WBStreamRx::internal_process_packet(const uint8_t *data, int data_len) {
     return;
   }
 
-  if (header->packet_flags & WB_PACKET_FLAG_RETRANSMITTED) {
+  if ((header->packet_flags & WB_PACKET_FLAG_RETRANSMITTED) &&
+      is_retransmission_enabled_for_packet_type(header->packet_type)) {
     m_console->debug("Received retransmitted packet, seq: {}",
                      header->stream_packet_idx);
+    m_n_retransmission_packets.fetch_add(1, std::memory_order_relaxed);
   }
 
   // Gap detection
-  check_gap_and_request(header->stream_packet_idx);
+  check_gap_and_request(header->packet_type, header->stream_packet_idx);
 
   if (m_options.enable_fec) {
     if (!FECDecoder::validate_packet_size(payload_len)) {
@@ -200,15 +235,20 @@ void WBStreamRx::internal_process_packet(const uint8_t *data, int data_len) {
   }
 }
 
-void WBStreamRx::check_gap_and_request(uint32_t current_seq_num) {
-  if (!m_first_packet_received) {
-    m_first_packet_received = true;
-    m_last_seq_num = current_seq_num;
+void WBStreamRx::check_gap_and_request(uint8_t packet_type,
+                                       uint32_t current_seq_num) {
+  if (!m_options.enable_retransmission) {
+    return;
+  }
+  if (!m_first_packet_received_by_type[packet_type]) {
+    m_first_packet_received_by_type[packet_type] = true;
+    m_last_seq_num_by_type[packet_type] = current_seq_num;
     return;
   }
 
   // Handle wrap-around using int32_t logic
-  int32_t diff = (int32_t)(current_seq_num - m_last_seq_num);
+  uint32_t last_seq = m_last_seq_num_by_type[packet_type];
+  int32_t diff = (int32_t)(current_seq_num - last_seq);
 
   if (diff > 1) {
     // Gap detected
@@ -217,10 +257,18 @@ void WBStreamRx::check_gap_and_request(uint32_t current_seq_num) {
     if (missing_count > 10)
       missing_count = 10;  // Cap at 10 to avoid huge bursts
 
-    for (uint32_t i = 1; i <= missing_count; i++) {
-      uint32_t missing_seq = m_last_seq_num + i;
-      m_console->debug("Detected gap. Requesting seq: {}", missing_seq);
-      send_retransmission_request(missing_seq);
+    if (is_retransmission_enabled_for_packet_type(packet_type)) {
+      m_n_missing_packets.fetch_add(missing_count, std::memory_order_relaxed);
+      const int retries =
+          std::max(1, m_retransmission_request_retries.load(
+                          std::memory_order_relaxed));
+      for (uint32_t i = 1; i <= missing_count; i++) {
+        uint32_t missing_seq = last_seq + i;
+        m_console->debug("Detected gap. Requesting seq: {}", missing_seq);
+        for (int r = 0; r < retries; r++) {
+          send_retransmission_request(packet_type, missing_seq);
+        }
+      }
     }
   }
 
@@ -228,22 +276,30 @@ void WBStreamRx::check_gap_and_request(uint32_t current_seq_num) {
   // Handle reordered packets? If current < last (diff <= 0), we might have
   // received an old packet (or retransmission).
   if (diff > 0) {
-    m_last_seq_num = current_seq_num;
+    m_last_seq_num_by_type[packet_type] = current_seq_num;
   }
 }
 
-void WBStreamRx::send_retransmission_request(uint32_t seq_num) {
+void WBStreamRx::send_retransmission_request(uint8_t packet_type,
+                                             uint32_t seq_num) {
+  m_n_retransmission_requests.fetch_add(1, std::memory_order_relaxed);
   // Construct packet
   WBPacketHeader header;
   header.packet_type = WB_PACKET_TYPE_RETRANSMISSION_REQ;
   header.packet_flags = 0;
   header.stream_packet_idx =
       seq_num;  // Use this field to convey the requested sequence number
-  header.total_length = sizeof(WBPacketHeader);
+  header.total_length =
+      sizeof(WBPacketHeader) + sizeof(uint8_t) + sizeof(uint16_t);
 
-  // Create buffer
-  std::vector<uint8_t> packet(sizeof(WBPacketHeader));
+  // Create buffer (header + requested packet type + request index)
+  std::vector<uint8_t> packet(sizeof(WBPacketHeader) + sizeof(uint8_t) +
+                              sizeof(uint16_t));
   memcpy(packet.data(), &header, sizeof(WBPacketHeader));
+  packet[sizeof(WBPacketHeader)] = packet_type;
+  const uint16_t request_index = m_request_index_counter++;
+  memcpy(packet.data() + sizeof(WBPacketHeader) + sizeof(uint8_t),
+         &request_index, sizeof(uint16_t));
 
   // Send using WBTxRx
   // Need a RadiotapHeaderTx. We can use a default one or create one.
@@ -262,4 +318,13 @@ void WBStreamRx::send_retransmission_request(uint32_t seq_num) {
   // Use m_options.radio_port for sending?
   m_txrx->tx_inject_packet(m_options.radio_port, packet.data(), packet.size(),
                            radiotap_header, false);
+}
+
+bool WBStreamRx::is_retransmission_enabled_for_packet_type(
+    uint8_t packet_type) const {
+  if (!m_options.enable_retransmission) return false;
+  if (m_options.retransmission_packet_type_mask == 0) {
+    return true;
+  }
+  return (m_options.retransmission_packet_type_mask & (1u << packet_type)) != 0;
 }

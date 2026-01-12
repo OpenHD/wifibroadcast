@@ -5,8 +5,10 @@
 #ifndef WIFIBROADCAST_WBSTREAMTX_H
 #define WIFIBROADCAST_WBSTREAMTX_H
 
+#include <array>
 #include <mutex>
 #include <queue>
+#include <unordered_map>
 #include <thread>
 #include <variant>
 
@@ -55,6 +57,10 @@ class WBStreamTx {
     bool dequeue_thread_max_realtime = true;
     // Enable/Disable retransmissions
     bool enable_retransmission = false;
+    // Default packet type for this stream (video/telemetry/rc)
+    uint8_t default_packet_type = WB_PACKET_TYPE_TELEMETRY;
+    // Bitmask of packet types eligible for retransmission (1 << type)
+    uint8_t retransmission_packet_type_mask = 0;
   };
   WBStreamTx(std::shared_ptr<WBTxRx> txrx, Options options,
              std::shared_ptr<RadiotapHeaderTxHolder> radiotap_header_holder);
@@ -78,10 +84,15 @@ class WBStreamTx {
    */
   bool try_enqueue_packet(std::shared_ptr<std::vector<uint8_t>> packet,
                           int n_injections = 1);
+  bool try_enqueue_packet_with_type(std::shared_ptr<std::vector<uint8_t>> packet,
+                                    int n_injections, uint8_t packet_type);
   // OpenHD - if the telemetry queue runs full, instead of dropping the most
   // recent packet, we clear all previous packets, then enqueue the new one.
   int enqueue_packet_dropping(std::shared_ptr<std::vector<uint8_t>> packet,
                               int n_injections = 1);
+  int enqueue_packet_dropping_with_type(
+      std::shared_ptr<std::vector<uint8_t>> packet, int n_injections,
+      uint8_t packet_type);
   /**
    * Enqueue a block (most likely a frame) to be processed, FEC needs to be
    * enabled in this mode. Guaranteed to return immediately. This method is not
@@ -147,7 +158,10 @@ class WBStreamTx {
   int get_tx_queue_available_size_approximate();
 
   // Handle retransmission request
-  void process_retransmission_request(uint32_t sequence_number);
+  void process_retransmission_request(uint8_t packet_type,
+                                      uint32_t sequence_number,
+                                      uint16_t request_index);
+  void set_max_history_size_for_type(uint8_t packet_type, size_t max_size);
 
  private:
   const Options options;
@@ -164,6 +178,7 @@ class WBStreamTx {
         std::chrono::steady_clock::now();
     std::shared_ptr<std::vector<uint8_t>> data;
     int n_injections;
+    uint8_t packet_type;
   };
   struct EnqueuedBlock {
     std::chrono::steady_clock::time_point enqueue_time_point =
@@ -218,14 +233,18 @@ class WBStreamTx {
     uint8_t packet_type;
     std::chrono::steady_clock::time_point timestamp;
   };
-  std::deque<SentPacket> m_sent_packets_history;
+  std::array<std::deque<SentPacket>, 256> m_sent_packets_history_by_type;
+  std::array<size_t, 256> m_max_history_size_by_type{};
+  std::array<std::unordered_map<uint32_t, uint16_t>, 256>
+      m_seen_retransmission_requests;
   std::mutex m_history_mutex;
-  uint32_t m_current_sequence_number = 0;
-  static constexpr size_t MAX_HISTORY_SIZE = 1000;
+  std::array<uint32_t, 256> m_sequence_numbers_by_type{};
+  static constexpr size_t DEFAULT_HISTORY_SIZE = 1000;
 
   // Helper to prepend header and store in history
   void prepare_and_send_packet(const uint8_t* data, int len,
                                uint8_t packet_type);
+  bool is_retransmission_enabled_for_packet_type(uint8_t packet_type) const;
 };
 
 #endif  // WIFIBROADCAST_WBSTREAMTX_H
