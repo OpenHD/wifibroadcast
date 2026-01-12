@@ -352,7 +352,7 @@ class WBTxRx {
   std::vector<PcapTxRx> m_pcap_handles;
   // temporary
   std::mutex m_tx_mutex;
-  bool keep_receiving = true;
+  std::atomic<bool> keep_receiving = true;
   int m_n_receiver_errors = 0;
   std::unique_ptr<std::thread> m_receive_thread;
   std::vector<pollfd> m_receive_pollfds;

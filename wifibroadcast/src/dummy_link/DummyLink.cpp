@@ -94,7 +94,7 @@ DummyLink::DummyLink(bool is_air) : m_is_air(is_air) {
 }
 
 DummyLink::~DummyLink() {
-  m_keep_receiving = false;
+  m_keep_receiving.store(false, std::memory_order_relaxed);
   shutdown(m_fd_rx, SHUT_RDWR);
   close(m_fd_rx);
   m_receive_thread->join();
@@ -125,7 +125,7 @@ void DummyLink::loop_rx() {
   SchedulingHelper::set_thread_params_max_realtime("DummyLink::loop_rx");
   auto read_buffer =
       std::make_shared<std::vector<uint8_t>>(MAX_MTU_INCLUDING_HEADER);
-  while (m_keep_receiving) {
+  while (m_keep_receiving.load(std::memory_order_relaxed)) {
     // auto packet= read_data(m_fd_rx);
     // auto size=recvfrom(fd, buff->data(), buff->size(), MSG_DONTWAIT, NULL,
     // NULL);

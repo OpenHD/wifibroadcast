@@ -310,7 +310,7 @@ void WBTxRx::loop_receive_packets() {
   }
   std::vector<int> packets_per_card{};
   packets_per_card.resize(m_wifi_cards.size());
-  while (keep_receiving) {
+  while (keep_receiving.load(std::memory_order_relaxed)) {
     if (m_optional_dummy_link) {
       auto packet = m_optional_dummy_link->rx_radiotap();
       if (packet) {
@@ -823,13 +823,13 @@ void WBTxRx::on_valid_data_packet(uint64_t nonce, int wlan_index,
 }
 
 void WBTxRx::start_receiving() {
-  keep_receiving = true;
+  keep_receiving.store(true, std::memory_order_relaxed);
   m_receive_thread =
       std::make_unique<std::thread>(&WBTxRx::loop_receive_packets, this);
 }
 
 void WBTxRx::stop_receiving() {
-  keep_receiving = false;
+  keep_receiving.store(false, std::memory_order_relaxed);
   if (m_receive_thread != nullptr) {
     if (m_receive_thread->joinable()) {
       m_receive_thread->join();
