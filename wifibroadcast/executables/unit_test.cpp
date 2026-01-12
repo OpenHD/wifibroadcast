@@ -386,7 +386,7 @@ static void test_manual_retransmission() {
 
   // Request retransmission
   std::cout << "Requesting retransmission of seq " << seq_num << std::endl;
-  stream_tx.process_retransmission_request(seq_num);
+  stream_tx.process_retransmission_request(header->packet_type, seq_num, 0);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
