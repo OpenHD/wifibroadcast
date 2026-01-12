@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/socket_helper_test.dir/wifibroadcast/executables/socket_helper_test.cpp.o -o socket_helper_test  libwifibroadcast.a /usr/lib/x86_64-linux-gnu/libpcap.so /usr/lib/x86_64-linux-gnu/libsodium.so /usr/lib/x86_64-linux-gnu/libspdlog.so.1.9.2 /usr/lib/x86_64-linux-gnu/libfmt.so.8.1.1 -Wl,--as-needed 

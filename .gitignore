@@ -72,3 +72,7 @@ misc.xml
 .idea/*
 
 /.vs
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
