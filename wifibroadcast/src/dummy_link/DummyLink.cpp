@@ -4,6 +4,7 @@
 
 #include "DummyLink.h"
 
+#include <poll.h>
 #include <fcntl.h>
 #include <memory.h>
 #include <sys/mman.h>
@@ -125,24 +126,27 @@ void DummyLink::loop_rx() {
   SchedulingHelper::set_thread_params_max_realtime("DummyLink::loop_rx");
   auto read_buffer =
       std::make_shared<std::vector<uint8_t>>(MAX_MTU_INCLUDING_HEADER);
+  struct pollfd pfd;
+  pfd.fd = m_fd_rx;
+  pfd.events = POLLIN;
   while (m_keep_receiving) {
-    // auto packet= read_data(m_fd_rx);
-    // auto size=recvfrom(fd, buff->data(), buff->size(), MSG_DONTWAIT, NULL,
-    // NULL);
-    auto size =
-        recv(m_fd_rx, read_buffer->data(), read_buffer->size(), MSG_WAITALL);
-    if (size > 0) {
-      auto packet = std::make_shared<std::vector<uint8_t>>(
-          read_buffer->data(), read_buffer->data() + size);
-      // std::cout<<"Got packet"<<packet->size()<<std::endl;
-      auto item = std::make_shared<DummyLink::RxPacket>();
-      item->buff = packet;
-      const auto success = m_rx_queue->try_enqueue(item);
-      if (!success) {
-        // Should never happen
+    int ret = poll(&pfd, 1, 100);
+    if (ret > 0) {
+      if (pfd.revents & POLLIN) {
+        auto size = recv(m_fd_rx, read_buffer->data(), read_buffer->size(), 0);
+        if (size > 0) {
+          auto packet = std::make_shared<std::vector<uint8_t>>(
+              read_buffer->data(), read_buffer->data() + size);
+          // std::cout<<"Got packet"<<packet->size()<<std::endl;
+          auto item = std::make_shared<DummyLink::RxPacket>();
+          item->buff = packet;
+          const auto success = m_rx_queue->try_enqueue(item);
+          if (!success) {
+            // Should never happen
+          }
+        }
       }
     }
-    // std::cout<<"ARGH"<<std::endl;
   }
 }
 
