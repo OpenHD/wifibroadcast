@@ -990,10 +990,12 @@ std::string WBTxRx::rx_stats_to_string(const WBTxRx::RxStats& data) {
 std::string WBTxRx::rx_stats_per_card_to_string(
     const WBTxRx::RxStatsPerCard& data) {
   return fmt::format(
-      "RxStatsCard{}[packets total:{} valid:{}, loss:{}% rssi:{}dBm noise:{}dBm "
+      "RxStatsCard{}[packets total:{} valid:{}, loss:{}% rssi:{}dBm "
+      "noise:{}dBm "
       "quality:{}%]",
-      data.card_index, data.count_p_any, data.count_p_valid, data.curr_packet_loss,
-      static_cast<int>(data.curr_rssi_dbm), static_cast<int>(data.curr_noise_dbm),
+      data.card_index, data.count_p_any, data.count_p_valid,
+      data.curr_packet_loss, static_cast<int>(data.curr_rssi_dbm),
+      static_cast<int>(data.curr_noise_dbm),
       static_cast<int>(data.curr_signal_quality_perc));
 }
 std::string WBTxRx::options_to_string(

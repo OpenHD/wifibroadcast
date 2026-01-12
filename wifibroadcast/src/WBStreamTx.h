@@ -5,6 +5,7 @@
 #ifndef WIFIBROADCAST_WBSTREAMTX_H
 #define WIFIBROADCAST_WBSTREAMTX_H
 
+#include <mutex>
 #include <queue>
 #include <thread>
 #include <variant>
@@ -14,9 +15,8 @@
 #include "FunkyQueue.h"
 #include "SimpleStream.hpp"
 #include "TimeHelper.hpp"
-#include "WBTxRx.h"
 #include "WBPacketHeader.h"
-#include <mutex>
+#include "WBTxRx.h"
 
 /**
  * Transmitter for a (multiplexed) wifbroadcast stream
@@ -213,10 +213,10 @@ class WBStreamTx {
 
   // Retransmission logic
   struct SentPacket {
-      uint32_t sequence_number;
-      std::vector<uint8_t> data;
-      uint8_t packet_type;
-      std::chrono::steady_clock::time_point timestamp;
+    uint32_t sequence_number;
+    std::vector<uint8_t> data;
+    uint8_t packet_type;
+    std::chrono::steady_clock::time_point timestamp;
   };
   std::deque<SentPacket> m_sent_packets_history;
   std::mutex m_history_mutex;
@@ -224,7 +224,8 @@ class WBStreamTx {
   static constexpr size_t MAX_HISTORY_SIZE = 1000;
 
   // Helper to prepend header and store in history
-  void prepare_and_send_packet(const uint8_t* data, int len, uint8_t packet_type);
+  void prepare_and_send_packet(const uint8_t* data, int len,
+                               uint8_t packet_type);
 };
 
 #endif  // WIFIBROADCAST_WBSTREAMTX_H

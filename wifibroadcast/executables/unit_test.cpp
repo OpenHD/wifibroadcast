@@ -28,6 +28,10 @@
 #include "../src//encryption/EncryptionFsUtils.h"
 #include "../src/HelperSources/Helper.hpp"
 #include "../src/Ieee80211Header.hpp"
+#include "../src/WBPacketHeader.h"
+#include "../src/WBStreamRx.h"
+#include "../src/WBStreamTx.h"
+#include "../src/WBTxRx.h"
 #include "../src/encryption/Decryptor.h"
 #include "../src/encryption/Encryption.h"
 #include "../src/encryption/Encryptor.h"
@@ -35,10 +39,6 @@
 #include "../src/fec/FECDecoder.h"
 #include "../src/fec/FECEncoder.h"
 #include "../src/wifibroadcast_spdlog.h"
-#include "../src/WBStreamTx.h"
-#include "../src/WBStreamRx.h"
-#include "../src/WBTxRx.h"
-#include "../src/WBPacketHeader.h"
 
 // Simple unit testing for the FEC lib that doesn't require wifi cards
 
@@ -303,301 +303,311 @@ static void test_encryption_serialize() {
 }
 
 static void test_manual_retransmission() {
-    std::cout << "Testing Manual Retransmission" << std::endl;
+  std::cout << "Testing Manual Retransmission" << std::endl;
 
-    // Create a dummy card
-    auto card = wifibroadcast::create_card_emulate(true);
-    std::vector<wifibroadcast::WifiCard> cards;
-    cards.push_back(card);
+  // Create a dummy card
+  auto card = wifibroadcast::create_card_emulate(true);
+  std::vector<wifibroadcast::WifiCard> cards;
+  cards.push_back(card);
 
-    // Create WBTxRx with dummy link
-    WBTxRx::Options options_txrx{};
-    options_txrx.tx_without_pcap = true; // Avoid real pcap
-    auto radiotap_header_holder_tx = std::make_shared<RadiotapHeaderTxHolder>();
-    std::shared_ptr<WBTxRx> txrx =
-        std::make_shared<WBTxRx>(cards, options_txrx, radiotap_header_holder_tx);
+  // Create WBTxRx with dummy link
+  WBTxRx::Options options_txrx{};
+  options_txrx.tx_without_pcap = true;  // Avoid real pcap
+  auto radiotap_header_holder_tx = std::make_shared<RadiotapHeaderTxHolder>();
+  std::shared_ptr<WBTxRx> txrx =
+      std::make_shared<WBTxRx>(cards, options_txrx, radiotap_header_holder_tx);
 
-    // Enable dummy link interception
-    auto dummy_link = txrx->get_dummy_link();
-    assert(dummy_link);
+  // Enable dummy link interception
+  auto dummy_link = txrx->get_dummy_link();
+  assert(dummy_link);
 
-    // Create WBStreamTx with retransmission enabled
-    WBStreamTx::Options options_stream{};
-    options_stream.enable_fec = false; // Easier to test with telemetry/plain packets
-    options_stream.enable_retransmission = true;
-    options_stream.radio_port = 5; // Arbitrary
+  // Create WBStreamTx with retransmission enabled
+  WBStreamTx::Options options_stream{};
+  options_stream.enable_fec =
+      false;  // Easier to test with telemetry/plain packets
+  options_stream.enable_retransmission = true;
+  options_stream.radio_port = 5;  // Arbitrary
 
-    WBStreamTx stream_tx(txrx, options_stream, radiotap_header_holder_tx);
-    stream_tx.set_encryption(false);
+  WBStreamTx stream_tx(txrx, options_stream, radiotap_header_holder_tx);
+  stream_tx.set_encryption(false);
 
-    // Create the receiver dummy link BEFORE sending, to avoid race conditions (packet lost if sent before receiver binds)
-    auto dummy_link_rx = std::make_shared<DummyLink>(false); // Ground unit
+  // Create the receiver dummy link BEFORE sending, to avoid race conditions
+  // (packet lost if sent before receiver binds)
+  auto dummy_link_rx = std::make_shared<DummyLink>(false);  // Ground unit
 
-    // Create a dummy packet
-    std::string payload_str = "Hello Retransmission";
-    auto payload = std::make_shared<std::vector<uint8_t>>(payload_str.begin(), payload_str.end());
+  // Create a dummy packet
+  std::string payload_str = "Hello Retransmission";
+  auto payload = std::make_shared<std::vector<uint8_t>>(payload_str.begin(),
+                                                        payload_str.end());
 
-    // Send packet
-    bool queued = stream_tx.try_enqueue_packet(payload);
-    assert(queued);
+  // Send packet
+  bool queued = stream_tx.try_enqueue_packet(payload);
+  assert(queued);
 
-    // Wait for the packet to be "sent" (processed by the thread)
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  // Wait for the packet to be "sent" (processed by the thread)
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-    // Let's read packets until we find ours (ignore session key packets)
-    std::shared_ptr<std::vector<uint8_t>> sent_packet = nullptr;
-    WBPacketHeader* header = nullptr;
+  // Let's read packets until we find ours (ignore session key packets)
+  std::shared_ptr<std::vector<uint8_t>> sent_packet = nullptr;
+  WBPacketHeader *header = nullptr;
 
-    for (int i=0; i<10; i++) {
-        sent_packet = dummy_link_rx->rx_radiotap();
-        if (sent_packet == nullptr) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            continue;
-        }
-        std::cout << "Received packet of size " << sent_packet->size() << std::endl;
-
-        std::string received_str(sent_packet->begin(), sent_packet->end());
-        size_t pos = received_str.find(payload_str);
-        if (pos != std::string::npos) {
-            // Found it
-            // Check WBPacketHeader
-            // The structure is WBPacketHeader + FECDisabledHeader + Payload
-            // WBPacketHeader size is sizeof(WBPacketHeader).
-            // FECDisabledHeader size is 8 bytes.
-            size_t header_pos = pos - sizeof(WBPacketHeader) - 8;
-            header = (WBPacketHeader*)(sent_packet->data() + header_pos);
-            break;
-        }
+  for (int i = 0; i < 10; i++) {
+    sent_packet = dummy_link_rx->rx_radiotap();
+    if (sent_packet == nullptr) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      continue;
     }
+    std::cout << "Received packet of size " << sent_packet->size() << std::endl;
 
-    assert(sent_packet != nullptr);
-    assert(header != nullptr);
+    std::string received_str(sent_packet->begin(), sent_packet->end());
+    size_t pos = received_str.find(payload_str);
+    if (pos != std::string::npos) {
+      // Found it
+      // Check WBPacketHeader
+      // The structure is WBPacketHeader + FECDisabledHeader + Payload
+      // WBPacketHeader size is sizeof(WBPacketHeader).
+      // FECDisabledHeader size is 8 bytes.
+      size_t header_pos = pos - sizeof(WBPacketHeader) - 8;
+      header = (WBPacketHeader *)(sent_packet->data() + header_pos);
+      break;
+    }
+  }
 
-    std::cout << "Packet Type: " << (int)header->packet_type << std::endl;
-    std::cout << "Packet Flags: " << (int)header->packet_flags << std::endl;
-    std::cout << "Sequence: " << header->stream_packet_idx << std::endl;
+  assert(sent_packet != nullptr);
+  assert(header != nullptr);
 
-    assert(header->packet_type == WB_PACKET_TYPE_TELEMETRY);
-    assert(header->packet_flags == 0);
-    uint32_t seq_num = header->stream_packet_idx;
+  std::cout << "Packet Type: " << (int)header->packet_type << std::endl;
+  std::cout << "Packet Flags: " << (int)header->packet_flags << std::endl;
+  std::cout << "Sequence: " << header->stream_packet_idx << std::endl;
 
-    // Request retransmission
-    std::cout << "Requesting retransmission of seq " << seq_num << std::endl;
-    stream_tx.process_retransmission_request(seq_num);
+  assert(header->packet_type == WB_PACKET_TYPE_TELEMETRY);
+  assert(header->packet_flags == 0);
+  uint32_t seq_num = header->stream_packet_idx;
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  // Request retransmission
+  std::cout << "Requesting retransmission of seq " << seq_num << std::endl;
+  stream_tx.process_retransmission_request(seq_num);
 
-    // Read the retransmitted packet
-    auto retransmitted_packet = dummy_link_rx->rx_radiotap();
-    assert(retransmitted_packet != nullptr);
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-    // Validate retransmitted packet
-    std::string re_received_str(retransmitted_packet->begin(), retransmitted_packet->end());
-    size_t re_pos = re_received_str.find(payload_str);
-    assert(re_pos != std::string::npos);
+  // Read the retransmitted packet
+  auto retransmitted_packet = dummy_link_rx->rx_radiotap();
+  assert(retransmitted_packet != nullptr);
 
-    // Adjust header position (account for FECDisabledHeader)
-    size_t re_header_pos = re_pos - sizeof(WBPacketHeader) - 8;
-    WBPacketHeader* re_header = (WBPacketHeader*)(retransmitted_packet->data() + re_header_pos);
+  // Validate retransmitted packet
+  std::string re_received_str(retransmitted_packet->begin(),
+                              retransmitted_packet->end());
+  size_t re_pos = re_received_str.find(payload_str);
+  assert(re_pos != std::string::npos);
 
-    std::cout << "Retransmitted Packet Type: " << (int)re_header->packet_type << std::endl;
-    std::cout << "Retransmitted Packet Flags: " << (int)re_header->packet_flags << std::endl;
+  // Adjust header position (account for FECDisabledHeader)
+  size_t re_header_pos = re_pos - sizeof(WBPacketHeader) - 8;
+  WBPacketHeader *re_header =
+      (WBPacketHeader *)(retransmitted_packet->data() + re_header_pos);
 
-    assert(re_header->packet_type == WB_PACKET_TYPE_TELEMETRY);
-    assert((re_header->packet_flags & WB_PACKET_FLAG_RETRANSMITTED) != 0);
-    assert(re_header->stream_packet_idx == seq_num);
+  std::cout << "Retransmitted Packet Type: " << (int)re_header->packet_type
+            << std::endl;
+  std::cout << "Retransmitted Packet Flags: " << (int)re_header->packet_flags
+            << std::endl;
 
-    std::cout << "Retransmission Test Passed" << std::endl;
+  assert(re_header->packet_type == WB_PACKET_TYPE_TELEMETRY);
+  assert((re_header->packet_flags & WB_PACKET_FLAG_RETRANSMITTED) != 0);
+  assert(re_header->stream_packet_idx == seq_num);
+
+  std::cout << "Retransmission Test Passed" << std::endl;
 }
 
 static void test_auto_retransmission() {
-    std::cout << "Testing Auto Retransmission" << std::endl;
+  std::cout << "Testing Auto Retransmission" << std::endl;
 
-    // Setup Tx side (Air)
-    auto card_air = wifibroadcast::create_card_emulate(true);
-    std::vector<wifibroadcast::WifiCard> cards_air;
-    cards_air.push_back(card_air);
+  // Setup Tx side (Air)
+  auto card_air = wifibroadcast::create_card_emulate(true);
+  std::vector<wifibroadcast::WifiCard> cards_air;
+  cards_air.push_back(card_air);
 
-    WBTxRx::Options options_txrx_air{};
-    options_txrx_air.tx_without_pcap = true;
-    options_txrx_air.use_gnd_identifier = false; // Air unit
-    auto radiotap_header_holder = std::make_shared<RadiotapHeaderTxHolder>();
-    std::shared_ptr<WBTxRx> txrx_air = std::make_shared<WBTxRx>(cards_air, options_txrx_air, radiotap_header_holder);
-    txrx_air->start_receiving(); // Listen for retransmission requests
+  WBTxRx::Options options_txrx_air{};
+  options_txrx_air.tx_without_pcap = true;
+  options_txrx_air.use_gnd_identifier = false;  // Air unit
+  auto radiotap_header_holder = std::make_shared<RadiotapHeaderTxHolder>();
+  std::shared_ptr<WBTxRx> txrx_air = std::make_shared<WBTxRx>(
+      cards_air, options_txrx_air, radiotap_header_holder);
+  txrx_air->start_receiving();  // Listen for retransmission requests
 
-    // Setup Rx side (Gnd)
-    auto card_gnd = wifibroadcast::create_card_emulate(false);
-    std::vector<wifibroadcast::WifiCard> cards_gnd;
-    cards_gnd.push_back(card_gnd);
+  // Setup Rx side (Gnd)
+  auto card_gnd = wifibroadcast::create_card_emulate(false);
+  std::vector<wifibroadcast::WifiCard> cards_gnd;
+  cards_gnd.push_back(card_gnd);
 
-    WBTxRx::Options options_txrx_gnd{};
-    options_txrx_gnd.tx_without_pcap = true;
-    options_txrx_gnd.use_gnd_identifier = true; // Ground unit
-    std::shared_ptr<WBTxRx> txrx_gnd = std::make_shared<WBTxRx>(cards_gnd, options_txrx_gnd, radiotap_header_holder);
-    txrx_gnd->start_receiving(); // Listen for video/telemetry
+  WBTxRx::Options options_txrx_gnd{};
+  options_txrx_gnd.tx_without_pcap = true;
+  options_txrx_gnd.use_gnd_identifier = true;  // Ground unit
+  std::shared_ptr<WBTxRx> txrx_gnd = std::make_shared<WBTxRx>(
+      cards_gnd, options_txrx_gnd, radiotap_header_holder);
+  txrx_gnd->start_receiving();  // Listen for video/telemetry
 
-    // Setup WBStreamTx on Air
-    WBStreamTx::Options options_stream_tx{};
-    options_stream_tx.enable_fec = false;
-    options_stream_tx.enable_retransmission = true;
-    options_stream_tx.radio_port = 5;
+  // Setup WBStreamTx on Air
+  WBStreamTx::Options options_stream_tx{};
+  options_stream_tx.enable_fec = false;
+  options_stream_tx.enable_retransmission = true;
+  options_stream_tx.radio_port = 5;
 
-    WBStreamTx stream_tx(txrx_air, options_stream_tx, radiotap_header_holder);
-    stream_tx.set_encryption(false);
+  WBStreamTx stream_tx(txrx_air, options_stream_tx, radiotap_header_holder);
+  stream_tx.set_encryption(false);
 
-    // Setup WBStreamRx on Gnd
-    WBStreamRx::Options options_stream_rx{};
-    options_stream_rx.enable_fec = false;
-    options_stream_rx.radio_port = 5;
-    options_stream_rx.enable_threading = true; // Use threading to process queue
+  // Setup WBStreamRx on Gnd
+  WBStreamRx::Options options_stream_rx{};
+  options_stream_rx.enable_fec = false;
+  options_stream_rx.radio_port = 5;
+  options_stream_rx.enable_threading = true;  // Use threading to process queue
 
-    WBStreamRx stream_rx(txrx_gnd, options_stream_rx);
+  WBStreamRx stream_rx(txrx_gnd, options_stream_rx);
 
-    std::atomic<int> received_packet_count = 0;
-    std::vector<std::string> received_payloads;
+  std::atomic<int> received_packet_count = 0;
+  std::vector<std::string> received_payloads;
 
-    stream_rx.set_callback([&](const uint8_t* payload, size_t size) {
-        std::string s(payload, payload + size);
-        std::cout << "Callback received: " << s << std::endl;
-        received_payloads.push_back(s);
-        received_packet_count++;
-    });
+  stream_rx.set_callback([&](const uint8_t *payload, size_t size) {
+    std::string s(payload, payload + size);
+    std::cout << "Callback received: " << s << std::endl;
+    received_payloads.push_back(s);
+    received_packet_count++;
+  });
 
-    // Send 3 packets: 0, 1, 2
-    // We want to drop 1 to trigger retransmission
-    // How to drop 1?
-    // We can't easily intercept DummyLink with WBTxRx running.
-    // Hack: Send 0. Wait. Send 2. Wait.
-    // Packet 1 is skipped on TX side?
-    // If I just skip calling try_enqueue_packet for payload 1, then sequence number will increment?
-    // No, WBStreamTx assigns sequence number.
-    // So if I enqueue P0, it gets Seq 0.
-    // If I enqueue P2, it gets Seq 1.
-    // Rx sees Seq 0 then Seq 1. No gap.
+  // Send 3 packets: 0, 1, 2
+  // We want to drop 1 to trigger retransmission
+  // How to drop 1?
+  // We can't easily intercept DummyLink with WBTxRx running.
+  // Hack: Send 0. Wait. Send 2. Wait.
+  // Packet 1 is skipped on TX side?
+  // If I just skip calling try_enqueue_packet for payload 1, then sequence
+  // number will increment? No, WBStreamTx assigns sequence number. So if I
+  // enqueue P0, it gets Seq 0. If I enqueue P2, it gets Seq 1. Rx sees Seq 0
+  // then Seq 1. No gap.
 
-    // I need to produce Seq 0, Seq 1, Seq 2.
-    // And ensure Rx sees Seq 0, then Seq 2.
+  // I need to produce Seq 0, Seq 1, Seq 2.
+  // And ensure Rx sees Seq 0, then Seq 2.
 
-    // I can modify `DummyLink` to drop packet based on pattern?
-    // `DummyLink` is shared via `m_optional_dummy_link`.
-    // I can access it from `txrx_air`.
-    auto dummy_air = txrx_air->get_dummy_link();
-    // I need to set it to drop the 2nd packet sent.
-    // `DummyLink` has `set_drop_mode(int prob)`.
-    // I need deterministic drop.
-    // I can't easily do it with current `DummyLink`.
+  // I can modify `DummyLink` to drop packet based on pattern?
+  // `DummyLink` is shared via `m_optional_dummy_link`.
+  // I can access it from `txrx_air`.
+  auto dummy_air = txrx_air->get_dummy_link();
+  // I need to set it to drop the 2nd packet sent.
+  // `DummyLink` has `set_drop_mode(int prob)`.
+  // I need deterministic drop.
+  // I can't easily do it with current `DummyLink`.
 
-    // ALTERNATIVE:
-    // Don't use `DummyLink` logic for dropping.
-    // Stop `txrx_gnd`.
-    // Send P0, P1, P2.
-    // Manually read from `txrx_gnd`'s dummy link.
-    // Inject P0, P2 into `WBStreamRx` via manual injection?
-    // `WBStreamRx` doesn't have public inject.
-    // But `WBStreamRx` listens to `txrx_gnd`.
-    // `txrx_gnd` reads from `DummyLink`.
+  // ALTERNATIVE:
+  // Don't use `DummyLink` logic for dropping.
+  // Stop `txrx_gnd`.
+  // Send P0, P1, P2.
+  // Manually read from `txrx_gnd`'s dummy link.
+  // Inject P0, P2 into `WBStreamRx` via manual injection?
+  // `WBStreamRx` doesn't have public inject.
+  // But `WBStreamRx` listens to `txrx_gnd`.
+  // `txrx_gnd` reads from `DummyLink`.
 
-    // `DummyLink` is a pair of sockets.
-    // If I read from the socket that `txrx_gnd` reads from, I steal the packet.
-    // `DummyLink(false)` (Gnd) reads from "air" socket.
-    // `DummyLink(true)` (Air) writes to "air" socket.
+  // `DummyLink` is a pair of sockets.
+  // If I read from the socket that `txrx_gnd` reads from, I steal the packet.
+  // `DummyLink(false)` (Gnd) reads from "air" socket.
+  // `DummyLink(true)` (Air) writes to "air" socket.
 
-    // So:
-    // 1. Pause `txrx_gnd`? `stop_receiving()`.
-    txrx_gnd->stop_receiving();
+  // So:
+  // 1. Pause `txrx_gnd`? `stop_receiving()`.
+  txrx_gnd->stop_receiving();
 
-    // 2. Send P0, P1, P2 from Air.
-    auto p0 = std::make_shared<std::vector<uint8_t>>(10, 'A');
-    auto p1 = std::make_shared<std::vector<uint8_t>>(10, 'B');
-    auto p2 = std::make_shared<std::vector<uint8_t>>(10, 'C');
+  // 2. Send P0, P1, P2 from Air.
+  auto p0 = std::make_shared<std::vector<uint8_t>>(10, 'A');
+  auto p1 = std::make_shared<std::vector<uint8_t>>(10, 'B');
+  auto p2 = std::make_shared<std::vector<uint8_t>>(10, 'C');
 
-    stream_tx.try_enqueue_packet(p0);
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    stream_tx.try_enqueue_packet(p1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    stream_tx.try_enqueue_packet(p2);
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  stream_tx.try_enqueue_packet(p0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  stream_tx.try_enqueue_packet(p1);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  stream_tx.try_enqueue_packet(p2);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    // 3. Steal packets from "air" socket (which Gnd reads from).
-    // I need a separate `DummyLink` instance to steal?
-    // `DummyLink(false)` binds to "air".
-    // If I create another `DummyLink(false)`, it will try to bind to "air". Address already in use?
-    // Unix sockets... bind might fail or steal.
+  // 3. Steal packets from "air" socket (which Gnd reads from).
+  // I need a separate `DummyLink` instance to steal?
+  // `DummyLink(false)` binds to "air".
+  // If I create another `DummyLink(false)`, it will try to bind to "air".
+  // Address already in use? Unix sockets... bind might fail or steal.
 
-    // But `txrx_gnd` has `m_optional_dummy_link`.
-    // I can use THAT one.
-    // But `WBTxRx` has it in `private`.
-    // But I added `get_dummy_link()` public method!
+  // But `txrx_gnd` has `m_optional_dummy_link`.
+  // I can use THAT one.
+  // But `WBTxRx` has it in `private`.
+  // But I added `get_dummy_link()` public method!
 
-    auto dummy_gnd_link = txrx_gnd->get_dummy_link();
-    // `txrx_gnd` is stopped (thread joined).
-    // So I can safely use `dummy_gnd_link->rx_radiotap()`.
+  auto dummy_gnd_link = txrx_gnd->get_dummy_link();
+  // `txrx_gnd` is stopped (thread joined).
+  // So I can safely use `dummy_gnd_link->rx_radiotap()`.
 
-    // Read all packets
-    std::vector<std::shared_ptr<std::vector<uint8_t>>> packets;
-    while(true) {
-        auto pkt = dummy_gnd_link->rx_radiotap();
-        if(!pkt) break;
-        packets.push_back(pkt);
-        // std::cout << "Stole packet size " << pkt->size() << std::endl;
+  // Read all packets
+  std::vector<std::shared_ptr<std::vector<uint8_t>>> packets;
+  while (true) {
+    auto pkt = dummy_gnd_link->rx_radiotap();
+    if (!pkt) break;
+    packets.push_back(pkt);
+    // std::cout << "Stole packet size " << pkt->size() << std::endl;
+  }
+
+  // We should have at least 3 data packets + session keys.
+  // We need to inject ALL packets back, EXCEPT P1 (which we drop).
+  // And we must inject them in order.
+
+  // Start `txrx_gnd`.
+  txrx_gnd->start_receiving();
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+  // Inject packets via `dummy_air` (which sends to "air", where Gnd listens).
+  // Filter out P1 ("BBBBBBBBBB").
+
+  int injected_count = 0;
+  for (auto pkt : packets) {
+    std::string s(pkt->begin(), pkt->end());
+    if (s.find("BBBBBBBBBB") != std::string::npos) {
+      std::cout << "Dropping P1" << std::endl;
+      continue;
     }
 
-    // We should have at least 3 data packets + session keys.
-    // We need to inject ALL packets back, EXCEPT P1 (which we drop).
-    // And we must inject them in order.
+    // Inject (Session keys, P0, P2)
+    dummy_air->tx_radiotap(pkt->data(), pkt->size());
+    injected_count++;
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
 
-    // Start `txrx_gnd`.
-    txrx_gnd->start_receiving();
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  std::cout << "Injected " << injected_count << " packets." << std::endl;
 
-    // Inject packets via `dummy_air` (which sends to "air", where Gnd listens).
-    // Filter out P1 ("BBBBBBBBBB").
+  // Wait for gap detection and retransmission
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    int injected_count = 0;
-    for(auto pkt : packets) {
-        std::string s(pkt->begin(), pkt->end());
-        if (s.find("BBBBBBBBBB") != std::string::npos) {
-            std::cout << "Dropping P1" << std::endl;
-            continue;
-        }
+  // `txrx_gnd` should receive P2.
+  // Detect Gap. Send Req.
+  // `txrx_air` receives Req. Resends P1.
+  // `txrx_gnd` receives P1.
 
-        // Inject (Session keys, P0, P2)
-        dummy_air->tx_radiotap(pkt->data(), pkt->size());
-        injected_count++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    }
+  // Total received should be 3.
+  std::cout << "Received count: " << received_packet_count << std::endl;
 
-    std::cout << "Injected " << injected_count << " packets." << std::endl;
+  // Stop everything
+  txrx_air->stop_receiving();
+  txrx_gnd->stop_receiving();
 
-    // Wait for gap detection and retransmission
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  assert(
+      received_packet_count >=
+      3);  // Might receive duplicates or session keys if not filtered properly
+  // Filter received payloads
+  bool foundA = false, foundB = false, foundC = false;
+  for (const auto &s : received_payloads) {
+    if (s.find("AAAAAAAAAA") != std::string::npos) foundA = true;
+    if (s.find("BBBBBBBBBB") != std::string::npos) foundB = true;
+    if (s.find("CCCCCCCCCC") != std::string::npos) foundC = true;
+  }
 
-    // `txrx_gnd` should receive P2.
-    // Detect Gap. Send Req.
-    // `txrx_air` receives Req. Resends P1.
-    // `txrx_gnd` receives P1.
+  assert(foundA);
+  assert(foundC);
+  assert(foundB);  // Retransmitted
 
-    // Total received should be 3.
-    std::cout << "Received count: " << received_packet_count << std::endl;
-
-    // Stop everything
-    txrx_air->stop_receiving();
-    txrx_gnd->stop_receiving();
-
-    assert(received_packet_count >= 3); // Might receive duplicates or session keys if not filtered properly
-    // Filter received payloads
-    bool foundA = false, foundB = false, foundC = false;
-    for(const auto& s : received_payloads) {
-        if (s.find("AAAAAAAAAA") != std::string::npos) foundA = true;
-        if (s.find("BBBBBBBBBB") != std::string::npos) foundB = true;
-        if (s.find("CCCCCCCCCC") != std::string::npos) foundC = true;
-    }
-
-    assert(foundA);
-    assert(foundC);
-    assert(foundB); // Retransmitted
-
-    std::cout << "Auto Retransmission Test Passed" << std::endl;
+  std::cout << "Auto Retransmission Test Passed" << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -614,7 +624,8 @@ int main(int argc, char *argv[]) {
       default: /* '?' */
       show_usage:
         std::cout << "Usage: Unit tests for FEC and encryption. -m 0,1,2 test "
-                     "mode: 0==ALL, 1==FEC only 2==Encryption only 3==ManualRetransmission 4==AutoRetransmission\n";
+                     "mode: 0==ALL, 1==FEC only 2==Encryption only "
+                     "3==ManualRetransmission 4==AutoRetransmission\n";
         return 1;
     }
   }
@@ -623,12 +634,12 @@ int main(int argc, char *argv[]) {
 
   try {
     if (test_mode == 3) {
-        test_manual_retransmission();
-        return 0;
+      test_manual_retransmission();
+      return 0;
     }
     if (test_mode == 4) {
-        test_auto_retransmission();
-        return 0;
+      test_auto_retransmission();
+      return 0;
     }
     if (test_mode == 0 || test_mode == 1) {
       std::cout << "Testing FEC" << std::endl;
@@ -647,8 +658,8 @@ int main(int argc, char *argv[]) {
       test_encrypt_decrypt_validate(true, false);
     }
     if (test_mode == 0) {
-        test_manual_retransmission();
-        test_auto_retransmission();
+      test_manual_retransmission();
+      test_auto_retransmission();
     }
   } catch (std::runtime_error &e) {
     std::cerr << "Error: " << std::string(e.what());
