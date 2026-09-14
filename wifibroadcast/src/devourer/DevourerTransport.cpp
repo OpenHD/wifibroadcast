@@ -4,6 +4,7 @@
 
 #include <libusb-1.0/libusb.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <filesystem>
@@ -146,6 +147,15 @@ std::optional<SelectedChannel> selected_channel(Channel channel) {
   if (number < 0 || number > 255) return std::nullopt;
   return SelectedChannel{static_cast<uint8_t>(number), channel_offset, width};
 }
+
+constexpr int scale_overdrive_qdb(int full_headroom_qdb, int level) {
+  const int overdrive = level <= 100 ? 0 : (level >= 150 ? 50 : level - 100);
+  return (full_headroom_qdb * overdrive + 25) / 50;
+}
+
+static_assert(scale_overdrive_qdb(56, 100) == 0);
+static_assert(scale_overdrive_qdb(56, 125) == 28);
+static_assert(scale_overdrive_qdb(56, 150) == 56);
 
 }  // namespace
 
@@ -332,6 +342,49 @@ int Transport::set_tx_power_offset_qdb(const int card_index,
   // that calibrated baseline before applying the relative control.
   card->device->SetTxPowerIndexOverride(-1);
   return card->device->SetTxPowerOffsetQdb(offset_qdb);
+}
+
+int Transport::set_tx_power_level(const int card_index, const int level,
+                                  const int normal_offset_qdb) {
+  if (card_index < 0 || card_index >= static_cast<int>(m_cards.size())) {
+    return 0;
+  }
+  auto& card = m_cards[card_index];
+  std::lock_guard<std::mutex> guard(card->control_mutex);
+  if (!card->device) return 0;
+
+  // Always stay on the calibrated relative-power path. In particular, do not
+  // revive the old flat max-index override, which discards the per-rate and
+  // per-path EFUSE shape.
+  card->device->SetTxPowerIndexOverride(-1);
+  if (level <= 100) {
+    return card->device->SetTxPowerOffsetQdb(normal_offset_qdb);
+  }
+
+  // Measure headroom from a clean 100% baseline. The representative MCS7
+  // index is the anchor used by Devourer's calibrated tables. Families with a
+  // fixed-dBm/TSSI model expose their headroom directly as offset_max_qdb.
+  card->device->SetTxPowerOffsetQdb(0);
+  const auto caps = card->device->GetTxPowerCaps();
+  const auto state = card->device->GetTxPowerState();
+  if (!caps.supported || caps.step_qdb == 0) return 0;
+
+  int full_headroom_qdb = caps.offset_max_qdb;
+  if (caps.index_max > 0 && state.valid && state.mcs7_index >= 0) {
+    const int headroom_steps =
+        std::max(0, static_cast<int>(caps.index_max) - state.mcs7_index);
+    full_headroom_qdb = headroom_steps * caps.step_qdb;
+  }
+  const int max_supported_qdb =
+      std::max(0, static_cast<int>(caps.offset_max_qdb));
+  full_headroom_qdb =
+      std::clamp(full_headroom_qdb, 0, max_supported_qdb);
+
+  const int requested_qdb = scale_overdrive_qdb(full_headroom_qdb, level);
+  card->logger->warn(
+      "TX-power OVERDRIVE {}%: using {} of {} qdB calibrated headroom",
+      level, requested_qdb, full_headroom_qdb);
+  return card->device->SetTxPowerOffsetQdb(requested_qdb);
 }
 
 std::optional<devourer::ThermalStatus> Transport::get_thermal_status(

@@ -295,6 +295,8 @@ class WBTxRx {
                                  int channel_width_mhz);
   void set_devourer_tx_power_index_override(int card_index, int index);
   int set_devourer_tx_power_offset_qdb(int card_index, int offset_qdb);
+  int set_devourer_tx_power_level(int card_index, int level,
+                                  int normal_offset_qdb);
   enum class DevourerFhssRole { Authority, Follower };
   enum class DevourerFhssState {
     Disabled,
