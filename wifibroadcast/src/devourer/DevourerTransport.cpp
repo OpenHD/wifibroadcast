@@ -207,6 +207,25 @@ struct Transport::Card {
     }
     try {
       device->InitWrite(*selected);
+      const auto caps = device->GetAdapterCaps();
+      if (!caps.supported) {
+        logger->error("Refusing {} for broadcast: Devourer capabilities "
+                      "are unavailable", interface_name);
+        close();
+        return false;
+      }
+      // The shared RTL8812A/RTL8811A chip ID alone is not a reason to deny
+      // a card. The initialized RF capabilities are decisive: STBC cannot be
+      // kept active on a physical 1T1R cut.
+      if (caps.tx_chains < 2 || caps.rx_chains < 2 ||
+          !caps.tx.stbc_ok || !caps.tx.ldpc_ok) {
+        logger->error(
+            "Refusing {} for broadcast: {} TX / {} RX chains, "
+            "STBC={}, LDPC={}", interface_name, caps.tx_chains,
+            caps.rx_chains, caps.tx.stbc_ok, caps.tx.ldpc_ok);
+        close();
+        return false;
+      }
     } catch (const std::exception& ex) {
       logger->error("Devourer bring-up failed for {}: {}", interface_name,
                     ex.what());
@@ -228,7 +247,6 @@ struct Transport::Card {
     if (handle) {
       if (interface_number >= 0) {
         libusb_release_interface(handle, interface_number);
-        libusb_attach_kernel_driver(handle, interface_number);
       }
       libusb_close(handle);
       handle = nullptr;
