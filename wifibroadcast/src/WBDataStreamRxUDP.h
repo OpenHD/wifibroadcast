@@ -1,11 +1,12 @@
 #ifndef WIFIBROADCAST_WBDATASTREAMRXUDP_H
 #define WIFIBROADCAST_WBDATASTREAMRXUDP_H
 
-#include "WBStreamRx.h"
 #include "HelperSources/SocketHelper.hpp"
+#include "WBStreamRx.h"
 
 /**
- * Uses UDP for data out instead of callback, specifically for WB_PACKET_TYPE_DATA.
+ * Uses UDP for data out instead of callback, specifically for
+ * WB_PACKET_TYPE_DATA.
  */
 class WBDataStreamRxUDP {
  public:

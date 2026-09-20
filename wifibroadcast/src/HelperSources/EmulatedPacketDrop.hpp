@@ -33,7 +33,7 @@ class PacketDropEmulator {
   }
   void log() {
     const double perc_dropped =
-        (double)n_dropped_packets / (n_totoal_packets)*100.0;
+        (double)n_dropped_packets / (n_totoal_packets) * 100.0;
     // std::cout<<"N
     // dropped:"<<n_dropped_packets<<",forwarded:"<<n_forwarded_packets<<"Perc:"<<perc_dropped<<"\n";
   }

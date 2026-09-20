@@ -41,8 +41,8 @@ struct SequenceControl {
   uint16_t sequence_nr : 12;
   std::string as_debug_string() const {
     std::stringstream ss;
-    ss << "SequenceControl["
-       << "" << (int)subfield << ":" << (int)sequence_nr << "]";
+    ss << "SequenceControl[" << "" << (int)subfield << ":" << (int)sequence_nr
+       << "]";
     return ss.str();
   }
 } __attribute__((packed));

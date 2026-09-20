@@ -116,11 +116,11 @@ class WBStreamTx {
                          int max_block_size, int fec_overhead_perc,
                          std::chrono::steady_clock::time_point creation_time =
                              std::chrono::steady_clock::now());
-  bool try_enqueue_frame_with_type(std::shared_ptr<std::vector<uint8_t>> frame,
-                                   int max_block_size, int fec_overhead_perc,
-                                   uint8_t packet_type,
-                                   std::chrono::steady_clock::time_point creation_time =
-                                       std::chrono::steady_clock::now());
+  bool try_enqueue_frame_with_type(
+      std::shared_ptr<std::vector<uint8_t>> frame, int max_block_size,
+      int fec_overhead_perc, uint8_t packet_type,
+      std::chrono::steady_clock::time_point creation_time =
+          std::chrono::steady_clock::now());
   // Temporary - for IDR frame(s)
   // Returns the n of dropped elements, or 0 if no elements were dropped
   int enqueue_block_dropping(

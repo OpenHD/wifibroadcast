@@ -1,12 +1,13 @@
 #ifndef WIFIBROADCAST_WBDATASTREAMTXUDP_H
 #define WIFIBROADCAST_WBDATASTREAMTXUDP_H
 
-#include "WBStreamTx.h"
 #include "HelperSources/SocketHelper.hpp"
 #include "HelperSources/TimeHelper.hpp"
+#include "WBStreamTx.h"
 
 /**
- * Uses UDP for data in instead of callback, specifically for WB_PACKET_TYPE_DATA.
+ * Uses UDP for data in instead of callback, specifically for
+ * WB_PACKET_TYPE_DATA.
  */
 class WBDataStreamTxUDP {
  public:
@@ -26,7 +27,8 @@ class WBDataStreamTxUDP {
             payload, payload + payloadSize);
         m_block.push_back(packet);
         if (m_block.size() == fec_k) {
-          wb_tx->try_enqueue_block_with_type(m_block, 100, 20, WB_PACKET_TYPE_DATA);
+          wb_tx->try_enqueue_block_with_type(m_block, 100, 20,
+                                             WB_PACKET_TYPE_DATA);
           m_block.clear();
         }
       } else {

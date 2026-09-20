@@ -69,7 +69,8 @@ WBStreamTx::WBStreamTx(
     m_fec_encoder = std::make_unique<FECEncoder>();
     auto cb = [this](const uint8_t* packet, int packet_len) {
       // Use the current block's packet type for the outgoing packet
-      prepare_and_send_packet(packet, packet_len, m_current_block_packet_type.load());
+      prepare_and_send_packet(packet, packet_len,
+                              m_current_block_packet_type.load());
     };
     m_fec_encoder->m_out_cb = cb;
   } else {
@@ -148,9 +149,9 @@ bool WBStreamTx::try_enqueue_block(
     std::vector<std::shared_ptr<std::vector<uint8_t>>> fragments,
     int max_block_size, int fec_overhead_perc,
     std::chrono::steady_clock::time_point creation_time) {
-  return try_enqueue_block_with_type(std::move(fragments), max_block_size,
-                                     fec_overhead_perc,
-                                     options.default_packet_type, creation_time);
+  return try_enqueue_block_with_type(
+      std::move(fragments), max_block_size, fec_overhead_perc,
+      options.default_packet_type, creation_time);
 }
 
 bool WBStreamTx::try_enqueue_block_with_type(
@@ -213,9 +214,9 @@ bool WBStreamTx::try_enqueue_frame(
     std::shared_ptr<std::vector<uint8_t>> frame, int max_block_size,
     int fec_overhead_perc,
     std::chrono::steady_clock::time_point creation_time) {
-  return try_enqueue_frame_with_type(std::move(frame), max_block_size,
-                                     fec_overhead_perc, options.default_packet_type,
-                                     creation_time);
+  return try_enqueue_frame_with_type(
+      std::move(frame), max_block_size, fec_overhead_perc,
+      options.default_packet_type, creation_time);
 }
 
 bool WBStreamTx::try_enqueue_frame_with_type(
