@@ -74,8 +74,7 @@ class PacketizedBenchmark {
     double totalBitRate_MBits =
         totalBytesDelta * 8.0 / 1024.0 / 1024.0 / (double)testDurationSeconds;
     std::cout << "Testing " << name << " took " << testDurationSeconds
-              << " seconds"
-              << "\n";
+              << " seconds" << "\n";
     std::cout << "TOTAL Packets per second:" << totalPacketsPerSecond
               << " before " << name << ": " << totalBitRate_MBits << "Mbit/s";
     if (factor != 1.0f) {
@@ -121,8 +120,7 @@ class DurationBenchmark {
     float avgDeltaMs = avgDeltaUs / 1000.0f;
     std::cout << "Performing " << name << " on "
               << StringHelper::memorySizeReadable(dataSizeBytes) << " took "
-              << avgDeltaMs << " ms on average"
-              << "\n";
+              << avgDeltaMs << " ms on average" << "\n";
     //
     double emulatedThroughputMBits =
         1000.0 / avgDeltaMs * dataSizeBytes * 8 / 1024 / 1024;

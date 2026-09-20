@@ -68,8 +68,9 @@ WBStreamTx::WBStreamTx(
         std::make_unique<BlockQueueType>(options.block_data_queue_size);
     m_fec_encoder = std::make_unique<FECEncoder>();
     auto cb = [this](const uint8_t* packet, int packet_len) {
-      // Determine packet type based on FEC enablement - Video usually uses FEC
-      prepare_and_send_packet(packet, packet_len, options.default_packet_type);
+      // Use the current block's packet type for the outgoing packet
+      prepare_and_send_packet(packet, packet_len,
+                              m_current_block_packet_type.load());
     };
     m_fec_encoder->m_out_cb = cb;
   } else {
@@ -148,6 +149,15 @@ bool WBStreamTx::try_enqueue_block(
     std::vector<std::shared_ptr<std::vector<uint8_t>>> fragments,
     int max_block_size, int fec_overhead_perc,
     std::chrono::steady_clock::time_point creation_time) {
+  return try_enqueue_block_with_type(
+      std::move(fragments), max_block_size, fec_overhead_perc,
+      options.default_packet_type, creation_time);
+}
+
+bool WBStreamTx::try_enqueue_block_with_type(
+    std::vector<std::shared_ptr<std::vector<uint8_t>>> fragments,
+    int max_block_size, int fec_overhead_perc, uint8_t packet_type,
+    std::chrono::steady_clock::time_point creation_time) {
   assert(options.enable_fec);
   m_n_input_packets += fragments.size();
   for (const auto& fragment : fragments) {
@@ -159,13 +169,14 @@ bool WBStreamTx::try_enqueue_block(
     m_count_bytes_data_provided += fragment->size();
   }
   auto item = std::make_shared<EnqueuedBlock>();
-  item->fragments = fragments;
+  item->fragments = std::move(fragments);
   item->max_block_size = max_block_size;
   item->fec_overhead_perc = fec_overhead_perc;
   item->creation_time = creation_time;
+  item->packet_type = packet_type;
   const bool res = m_block_queue->try_enqueue(item);
   if (!res) {
-    m_n_dropped_packets += fragments.size();
+    m_n_dropped_packets += item->fragments.size();
     m_n_dropped_frames++;
     // m_curr_seq_nr+=fragments.size();
   }
@@ -203,14 +214,24 @@ bool WBStreamTx::try_enqueue_frame(
     std::shared_ptr<std::vector<uint8_t>> frame, int max_block_size,
     int fec_overhead_perc,
     std::chrono::steady_clock::time_point creation_time) {
+  return try_enqueue_frame_with_type(
+      std::move(frame), max_block_size, fec_overhead_perc,
+      options.default_packet_type, creation_time);
+}
+
+bool WBStreamTx::try_enqueue_frame_with_type(
+    std::shared_ptr<std::vector<uint8_t>> frame, int max_block_size,
+    int fec_overhead_perc, uint8_t packet_type,
+    std::chrono::steady_clock::time_point creation_time) {
   assert(options.enable_fec);
   m_n_input_packets += 1;
   m_count_bytes_data_provided += frame->size();
   auto item = std::make_shared<EnqueuedBlock>();
-  item->frame = frame;
+  item->frame = std::move(frame);
   item->max_block_size = max_block_size;
   item->fec_overhead_perc = fec_overhead_perc;
   item->creation_time = creation_time;
+  item->packet_type = packet_type;
   const bool res = m_block_queue->try_enqueue(item);
   if (!res) {
     m_n_dropped_packets += 1;
@@ -326,6 +347,7 @@ void WBStreamTx::process_enqueued_packet(
 
 void WBStreamTx::process_enqueued_block(
     const WBStreamTx::EnqueuedBlock& block) {
+  m_current_block_packet_type.store(block.packet_type);
   if (block.frame != nullptr) {
     dirty_process_enqueued_frame(block);
     return;

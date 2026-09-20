@@ -99,8 +99,7 @@ static void loopUntilDone(const Options &options) {
   std::cout << "PACKET_SIZE: " << options.PACKET_SIZE << "\n";
   std::cout << "wanted_packets_per_second: "
             << options.wanted_packets_per_second << "\n";
-  std::cout << "wanted Bitrate: " << wantedBitRate_MBits << "MBit/s"
-            << "\n";
+  std::cout << "wanted Bitrate: " << wantedBitRate_MBits << "MBit/s" << "\n";
   std::cout << "Generator: " << (options.generator ? "yes" : "no") << "\n";
   std::cout << "UDP port: " << options.udp_port << "\n";
   std::cout << "UDP host: " << options.udp_host << "\n";
@@ -235,8 +234,7 @@ int main(int argc, char *const *argv) {
                   << options.udp_port
                   << "] [-h udp host default:" << options.udp_host << "]"
                   << "[-p wanted packets per second, default:"
-                  << options.wanted_packets_per_second << "]"
-                  << "\n";
+                  << options.wanted_packets_per_second << "]" << "\n";
         return 1;
     }
   }
