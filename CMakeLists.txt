@@ -61,3 +61,7 @@ install(TARGETS example_hello DESTINATION bin)
 install(TARGETS example_udp DESTINATION bin)
 
 
+
+add_executable(example_data_txrx wifibroadcast/executables/example_data_txrx.cpp)
+target_link_libraries(example_data_txrx PRIVATE ${WB_TARGET_LINK_LIBRARIES})
+install(TARGETS example_data_txrx DESTINATION bin)

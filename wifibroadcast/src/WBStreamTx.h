@@ -106,11 +106,21 @@ class WBStreamTx {
       int max_block_size, int fec_overhead_perc,
       std::chrono::steady_clock::time_point creation_time =
           std::chrono::steady_clock::now());
+  bool try_enqueue_block_with_type(
+      std::vector<std::shared_ptr<std::vector<uint8_t>>> fragments,
+      int max_block_size, int fec_overhead_perc, uint8_t packet_type,
+      std::chrono::steady_clock::time_point creation_time =
+          std::chrono::steady_clock::now());
   // experimental ;)
   bool try_enqueue_frame(std::shared_ptr<std::vector<uint8_t>> frame,
                          int max_block_size, int fec_overhead_perc,
                          std::chrono::steady_clock::time_point creation_time =
                              std::chrono::steady_clock::now());
+  bool try_enqueue_frame_with_type(
+      std::shared_ptr<std::vector<uint8_t>> frame, int max_block_size,
+      int fec_overhead_perc, uint8_t packet_type,
+      std::chrono::steady_clock::time_point creation_time =
+          std::chrono::steady_clock::now());
   // Temporary - for IDR frame(s)
   // Returns the n of dropped elements, or 0 if no elements were dropped
   int enqueue_block_dropping(
@@ -192,6 +202,7 @@ class WBStreamTx {
     std::vector<std::shared_ptr<std::vector<uint8_t>>> fragments;
     std::shared_ptr<std::vector<uint8_t>> frame =
         nullptr;  // replaces fragments
+    uint8_t packet_type;
   };
   // Used if fec is disabled, for telemetry data
   using PacketQueueType = FunkyQueue<std::shared_ptr<EnqueuedPacket>>;
@@ -228,6 +239,8 @@ class WBStreamTx {
   void send_packet(const uint8_t* packet, int packet_len);
   std::atomic<bool> m_enable_encryption = true;
   std::atomic<bool> m_use_external_crypto = false;
+
+  std::atomic<uint8_t> m_current_block_packet_type{0};
 
   // Retransmission logic
   struct SentPacket {
