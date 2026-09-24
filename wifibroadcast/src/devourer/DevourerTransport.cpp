@@ -17,7 +17,7 @@
 #include <utility>
 
 #include "DeviceConfig.h"
-#include "IRtlDevice.h"
+#include "IRadio.h"
 #include "RadiotapBuilder.h"
 #include "RxPacket.h"
 #include "SelectedChannel.h"
@@ -166,7 +166,7 @@ struct Transport::Card {
   libusb_device_handle* handle = nullptr;
   int interface_number = -1;
   std::shared_ptr<devourer::UsbDeviceLock> lock;
-  std::unique_ptr<IRtlDevice> device;
+  std::unique_ptr<IRadio> device;
   std::thread rx_thread;
   std::mutex control_mutex;
 
@@ -198,7 +198,7 @@ struct Transport::Card {
     devourer::DeviceConfig config;
     config.rx.enable_with_tx = true;
     WiFiDriver factory(logger);
-    device = factory.CreateRtlDevice(handle, context, lock, config);
+    device = factory.CreateRadio(handle, context, lock, config);
     const auto selected = selected_channel(channel);
     if (!device || !selected) {
       logger->error("Unsupported adapter or channel for {}", interface_name);
