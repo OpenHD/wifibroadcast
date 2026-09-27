@@ -36,7 +36,7 @@ class Transport {
   using RxCallback = std::function<void(int, const Packet&)>;
   using FatalCallback = std::function<void(int)>;
 
-  Transport(std::vector<std::string> interface_names, Channel channel);
+  Transport(std::vector<std::string> interface_names, Channel channel, std::string log_path = "");
   ~Transport();
   Transport(const Transport&) = delete;
   Transport& operator=(const Transport&) = delete;
@@ -66,6 +66,7 @@ class Transport {
   std::vector<std::string> m_interface_names;
   std::vector<std::unique_ptr<Card>> m_cards;
   Channel m_channel;
+  std::string m_log_path;
   mutable std::mutex m_fhss_mutex;
   std::shared_ptr<devourer::FhssSession> m_fhss;
 };

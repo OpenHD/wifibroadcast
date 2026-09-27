@@ -125,6 +125,7 @@ class WBTxRx {
     bool use_devourer = false;
     int devourer_frequency_mhz = 0;
     int devourer_channel_width_mhz = 20;
+    std::string devourer_log_path;
   };
   /**
    * @param wifi_cards card(s) used for tx / rx
