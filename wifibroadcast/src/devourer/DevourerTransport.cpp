@@ -162,6 +162,7 @@ static_assert(scale_overdrive_qdb(56, 150) == 56);
 struct Transport::Card {
   std::string interface_name;
   std::shared_ptr<Logger> logger = std::make_shared<Logger>();
+  std::FILE* log_file = nullptr;
   libusb_context* context = nullptr;
   libusb_device_handle* handle = nullptr;
   int interface_number = -1;
@@ -236,6 +237,7 @@ struct Transport::Card {
   }
 
   void close() {
+    if (log_file) { std::fclose(log_file); log_file = nullptr; }
     stop_rx();
     if (device) {
       try {
@@ -264,8 +266,8 @@ struct Transport::Card {
   }
 };
 
-Transport::Transport(std::vector<std::string> interface_names, Channel channel)
-    : m_interface_names(std::move(interface_names)), m_channel(channel) {}
+Transport::Transport(std::vector<std::string> interface_names, Channel channel, std::string log_path)
+    : m_interface_names(std::move(interface_names)), m_channel(channel), m_log_path(std::move(log_path)) {}
 
 Transport::~Transport() { close(); }
 
@@ -275,6 +277,12 @@ bool Transport::open() {
     auto card = std::make_unique<Card>();
     card->interface_name = name;
     card->logger->set_level(Logger::Level::Info);
+    if (!m_log_path.empty()) {
+      card->log_file = std::fopen(m_log_path.c_str(), "a");
+      if (card->log_file) {
+        card->logger->set_diag_stream(card->log_file);
+      }
+    }
     if (!card->open(m_channel)) {
       close();
       return false;
