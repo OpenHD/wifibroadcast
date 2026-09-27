@@ -17,7 +17,17 @@
 #include <utility>
 
 #include "DeviceConfig.h"
+#if defined(__has_include) && __has_include("IRadio.h")
 #include "IRadio.h"
+using DevourerRadioInterface = IRadio;
+#define DEVOURER_CREATE_RADIO(factory, handle, ctx, lock, cfg) \
+  (factory).CreateRadio((handle), (ctx), (lock), (cfg))
+#else
+#include "IRtlDevice.h"
+using DevourerRadioInterface = IRtlDevice;
+#define DEVOURER_CREATE_RADIO(factory, handle, ctx, lock, cfg) \
+  (factory).CreateRtlDevice((handle), (ctx), (lock), (cfg))
+#endif
 #include "RadiotapBuilder.h"
 #include "RxPacket.h"
 #include "SelectedChannel.h"
@@ -167,7 +177,7 @@ struct Transport::Card {
   libusb_device_handle* handle = nullptr;
   int interface_number = -1;
   std::shared_ptr<devourer::UsbDeviceLock> lock;
-  std::unique_ptr<IRadio> device;
+  std::unique_ptr<DevourerRadioInterface> device;
   std::thread rx_thread;
   std::mutex control_mutex;
 
@@ -199,7 +209,7 @@ struct Transport::Card {
     devourer::DeviceConfig config;
     config.rx.enable_with_tx = true;
     WiFiDriver factory(logger);
-    device = factory.CreateRadio(handle, context, lock, config);
+    device = DEVOURER_CREATE_RADIO(factory, handle, context, lock, config);
     const auto selected = selected_channel(channel);
     if (!device || !selected) {
       logger->error("Unsupported adapter or channel for {}", interface_name);
