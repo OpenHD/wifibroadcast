@@ -135,6 +135,7 @@ if(WB_USE_SPDLOG_EXTERNALLY)
     # LOL- In openhd we build spdlog into OHDCommonLib and get it from there
     # There were some weird issues with using their cmake and buildroot
     target_link_libraries(wifibroadcast PUBLIC OHDCommonLib)
+    target_compile_definitions(wifibroadcast PRIVATE WIFIBROADCAST_OPENHD_LOG_SINK=1)
 else ()
     message(STATUS "Using spdlog from package manager")
     if(TARGET spdlog::spdlog)

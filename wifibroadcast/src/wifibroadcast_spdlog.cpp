@@ -5,7 +5,12 @@
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#ifdef WIFIBROADCAST_OPENHD_LOG_SINK
+#include "openhd_spdlog.h"
+#endif
+
 #include <cassert>
+#include <cstdlib>
 #include <fstream>
 #include <mutex>
 
@@ -18,11 +23,16 @@ std::shared_ptr<spdlog::logger> wifibroadcast::log::create_or_get(
     auto created = spdlog::stdout_color_mt(logger_name);
 
     std::ifstream file("/usr/share/openhd/debug.txt");
-    if (file.good()) {
+    const char* persistent_dir = std::getenv("OPENHD_PERSISTENT_LOG_DIR");
+    if (file.good() || std::getenv("OPENHD_TUI_DEBUG") != nullptr ||
+        persistent_dir != nullptr) {
       created->set_level(spdlog::level::debug);
     } else {
       created->set_level(spdlog::level::warn);
     }
+#ifdef WIFIBROADCAST_OPENHD_LOG_SINK
+    openhd::log::attach_persistent_logging_sink(created);
+#endif
 
     assert(created);
     return created;

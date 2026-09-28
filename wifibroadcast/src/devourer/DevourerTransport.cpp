@@ -247,6 +247,7 @@ struct Transport::Card {
   }
 
   void close() {
+    logger->set_diag_stream(nullptr);
     if (log_file) { std::fclose(log_file); log_file = nullptr; }
     stop_rx();
     if (device) {
@@ -317,6 +318,28 @@ bool Transport::send(int card_index, const uint8_t* data, int length) {
   std::lock_guard<std::mutex> guard(card->control_mutex);
   return card->device->send_packet(
       data, static_cast<size_t>(length));
+}
+
+bool Transport::set_log_path(std::string log_path) {
+  bool success = true;
+  for (auto& card : m_cards) {
+    std::lock_guard<std::mutex> guard(card->control_mutex);
+    card->logger->set_diag_stream(nullptr);
+    if (card->log_file) {
+      std::fclose(card->log_file);
+      card->log_file = nullptr;
+    }
+    if (!log_path.empty()) {
+      card->log_file = std::fopen(log_path.c_str(), "a");
+      if (card->log_file) {
+        card->logger->set_diag_stream(card->log_file);
+      } else {
+        success = false;
+      }
+    }
+  }
+  m_log_path = std::move(log_path);
+  return success;
 }
 
 bool Transport::set_channel(Channel channel) {

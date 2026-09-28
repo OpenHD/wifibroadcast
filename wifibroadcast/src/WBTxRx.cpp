@@ -1153,6 +1153,16 @@ void WBTxRx::stop_receiving() {
   }
 }
 
+bool WBTxRx::set_devourer_log_path(const std::string& log_path) {
+#ifdef WIFIBROADCAST_WITH_DEVOURER
+  std::lock_guard<std::mutex> guard(m_tx_mutex);
+  return m_devourer && m_devourer->transport->set_log_path(log_path);
+#else
+  (void)log_path;
+  return false;
+#endif
+}
+
 bool WBTxRx::set_devourer_channel(const int frequency_mhz,
                                   const int channel_width_mhz) {
 #ifdef WIFIBROADCAST_WITH_DEVOURER

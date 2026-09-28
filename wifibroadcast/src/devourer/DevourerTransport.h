@@ -44,6 +44,7 @@ class Transport {
   bool open();
   void close();
   bool send(int card_index, const uint8_t* data, int length);
+  bool set_log_path(std::string log_path);
   bool set_channel(Channel channel);
   bool set_card_channel(int card_index, Channel channel);
   void set_tx_power_index_override(int card_index, int index);

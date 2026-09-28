@@ -292,6 +292,7 @@ class WBTxRx {
   // Runtime radio controls for the userspace Devourer backend. They return
   // false/no-op when the Linux backend is active.
   bool set_devourer_channel(int frequency_mhz, int channel_width_mhz);
+  bool set_devourer_log_path(const std::string& log_path);
   bool set_devourer_card_channel(int card_index, int frequency_mhz,
                                  int channel_width_mhz);
   void set_devourer_tx_power_index_override(int card_index, int index);
