@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -180,6 +181,7 @@ struct Transport::Card {
   std::unique_ptr<DevourerRadioInterface> device;
   std::thread rx_thread;
   std::mutex control_mutex;
+  std::optional<std::chrono::steady_clock::time_point> tx_timeout_since;
 
   ~Card() { close(); }
 
@@ -309,15 +311,46 @@ void Transport::close() {
   m_cards.clear();
 }
 
-bool Transport::send(int card_index, const uint8_t* data, int length) {
+bool Transport::send(int card_index, const uint8_t* data, int length,
+                     bool* fatal_error) {
+  if (fatal_error) *fatal_error = false;
   if (card_index < 0 || card_index >= static_cast<int>(m_cards.size()) ||
       !data || length <= 0) {
     return false;
   }
   auto& card = m_cards[card_index];
   std::lock_guard<std::mutex> guard(card->control_mutex);
-  return card->device->send_packet(
+#if defined(__has_include) && __has_include("IRadio.h")
+  const auto previous_stats = card->device->GetTxStats();
+#endif
+  const bool sent = card->device->send_packet(
       data, static_cast<size_t>(length));
+#if defined(__has_include) && __has_include("IRadio.h")
+  if (!sent && fatal_error) {
+    const auto stats = card->device->GetTxStats();
+    const bool new_failure = stats.failed > previous_stats.failed;
+    const auto now = std::chrono::steady_clock::now();
+    if (new_failure && stats.last_was_timeout) {
+      if (!card->tx_timeout_since) card->tx_timeout_since = now;
+    } else {
+      card->tx_timeout_since.reset();
+    }
+    // Isolated FIFO back-pressure drops a packet. A cancelled prefix or a
+    // sustained stall needs reinitialization before another frame is sent.
+    const bool stalled = card->tx_timeout_since &&
+        now - *card->tx_timeout_since >= std::chrono::seconds(2);
+    *fatal_error = stalled || (new_failure && !stats.last_was_timeout &&
+        (stats.last_error_rc == LIBUSB_ERROR_NO_DEVICE ||
+         stats.last_error_rc == LIBUSB_ERROR_PIPE ||
+         stats.last_error_rc == LIBUSB_ERROR_IO ||
+         stats.last_error_rc == devourer::kTxShortWriteRc));
+  }
+#else
+  // Older Devourer interfaces expose no failure classification.
+  if (!sent && fatal_error) *fatal_error = true;
+#endif
+  if (sent) card->tx_timeout_since.reset();
+  return sent;
 }
 
 bool Transport::set_log_path(std::string log_path) {

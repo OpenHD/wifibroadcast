@@ -18,9 +18,11 @@ class WBDataStreamTxUDP {
  public:
   WBDataStreamTxUDP(std::shared_ptr<WBTxRx> txrx, WBStreamTx::Options options,
                     int fec_k, int in_udp_port, int fec_overhead_percent = 20,
-                    int max_payload_bitrate_kbits = 0) {
+                    int max_payload_bitrate_kbits = 0,
+                    std::shared_ptr<RadiotapHeaderTxHolder> tx_header = nullptr) {
     options.default_packet_type = WB_PACKET_TYPE_DATA;
-    radiotap_header_holder = std::make_shared<RadiotapHeaderTxHolder>();
+    radiotap_header_holder = tx_header ? std::move(tx_header)
+                                      : std::make_shared<RadiotapHeaderTxHolder>();
     wb_tx = std::make_unique<WBStreamTx>(txrx, options, radiotap_header_holder);
     last_udp_in_packet_ts_ms = MyTimeHelper::get_curr_time_ms();
 
