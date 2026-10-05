@@ -315,10 +315,12 @@ void Transport::close() {
 }
 
 bool Transport::send(int card_index, const uint8_t* data, int length,
-                     bool* fatal_error) {
+                     bool* fatal_error, std::string* failure_reason) {
   if (fatal_error) *fatal_error = false;
+  if (failure_reason) failure_reason->clear();
   if (card_index < 0 || card_index >= static_cast<int>(m_cards.size()) ||
       !data || length <= 0) {
+    if (failure_reason) *failure_reason = "invalid card or packet";
     return false;
   }
   auto& card = m_cards[card_index];
@@ -329,9 +331,21 @@ bool Transport::send(int card_index, const uint8_t* data, int length,
   const bool sent = card->device->send_packet(
       data, static_cast<size_t>(length));
 #if defined(__has_include) && __has_include("IRadio.h")
-  if (!sent && fatal_error) {
+  if (!sent) {
     const auto stats = card->device->GetTxStats();
     const bool new_failure = stats.failed > previous_stats.failed;
+    if (failure_reason) {
+      if (new_failure) {
+        *failure_reason = "USB TX rc=" + std::to_string(stats.last_error_rc) +
+                          " timeout=" +
+                          (stats.last_was_timeout ? "yes" : "no");
+        if (stats.last_error_rc == devourer::kTxShortWriteRc) {
+          *failure_reason += " (partial USB write)";
+        }
+      } else {
+        *failure_reason = "send rejected without a new USB TX failure";
+      }
+    }
     const auto now = std::chrono::steady_clock::now();
     if (new_failure && stats.last_was_timeout) {
       if (!card->tx_timeout_since) card->tx_timeout_since = now;
@@ -342,15 +356,20 @@ bool Transport::send(int card_index, const uint8_t* data, int length,
     // sustained stall needs reinitialization before another frame is sent.
     const bool stalled = card->tx_timeout_since &&
         now - *card->tx_timeout_since >= std::chrono::seconds(2);
-    *fatal_error = stalled || (new_failure && !stats.last_was_timeout &&
-        (stats.last_error_rc == LIBUSB_ERROR_NO_DEVICE ||
-         stats.last_error_rc == LIBUSB_ERROR_PIPE ||
-         stats.last_error_rc == LIBUSB_ERROR_IO ||
-         stats.last_error_rc == devourer::kTxShortWriteRc));
+    if (fatal_error) {
+      *fatal_error = stalled || (new_failure && !stats.last_was_timeout &&
+          (stats.last_error_rc == LIBUSB_ERROR_NO_DEVICE ||
+           stats.last_error_rc == LIBUSB_ERROR_PIPE ||
+           stats.last_error_rc == LIBUSB_ERROR_IO ||
+           stats.last_error_rc == devourer::kTxShortWriteRc));
+    }
   }
 #else
   // Older Devourer interfaces expose no failure classification.
   if (!sent && fatal_error) *fatal_error = true;
+  if (!sent && failure_reason) {
+    *failure_reason = "legacy Devourer backend: USB TX status unavailable";
+  }
 #endif
   if (sent) card->tx_timeout_since.reset();
   return sent;

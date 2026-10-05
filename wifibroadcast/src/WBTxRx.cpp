@@ -425,6 +425,7 @@ bool WBTxRx::inject_radiotap_packet(int card_index, const uint8_t* packet_buff,
   // inject via pcap
   int len_injected = 0;
   bool devourer_fatal_error = false;
+  std::string devourer_failure_reason;
   // we inject the packet on whatever card has the highest rx rssi right now
   const auto before_inject = std::chrono::steady_clock::now();
   if (m_optional_dummy_link) {
@@ -433,7 +434,8 @@ bool WBTxRx::inject_radiotap_packet(int card_index, const uint8_t* packet_buff,
 #ifdef WIFIBROADCAST_WITH_DEVOURER
   } else if (m_devourer) {
     len_injected = m_devourer->transport->send(card_index, packet_buff,
-                                               packet_size, &devourer_fatal_error)
+                                               packet_size, &devourer_fatal_error,
+                                               &devourer_failure_reason)
                        ? packet_size
                        : -1;
 #endif
@@ -468,8 +470,10 @@ bool WBTxRx::inject_radiotap_packet(int card_index, const uint8_t* packet_buff,
     // wait ?!
     bool has_fatal_error = false;
     if (m_options.use_devourer) {
-      m_console->warn("devourer - unable to inject packet size:{}",
-                      packet_size);
+      m_console->warn(
+          "Devourer TX failed: card={} packet_size={} reason=[{}] fatal={}",
+          card_index, packet_size, devourer_failure_reason,
+          devourer_fatal_error);
       has_fatal_error = devourer_fatal_error;
     } else if (m_options.tx_without_pcap) {
       m_console->warn(
