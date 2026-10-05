@@ -527,8 +527,16 @@ std::optional<Transport::QualitySnapshot> Transport::get_quality_snapshot(
   auto& card = m_cards[card_index];
   std::lock_guard<std::mutex> guard(card->control_mutex);
   if (!card->device) return std::nullopt;
-  return QualitySnapshot{card->device->GetRxQuality(),
-                         card->device->GetActiveRxPaths()};
+  try {
+    return QualitySnapshot{card->device->GetRxQuality(),
+                           card->device->GetActiveRxPaths()};
+  } catch (const std::exception& ex) {
+    // GetRxQuality also reads hardware counters/NHM over USB. A disconnect
+    // must not escape the OpenHD statistics thread and terminate the process.
+    card->logger->warn("Quality read failed for {}: {}", card->interface_name,
+                       ex.what());
+    return std::nullopt;
+  }
 }
 
 void Transport::start_rx(RxCallback callback, FatalCallback fatal_callback) {
