@@ -490,7 +490,14 @@ std::optional<devourer::ThermalStatus> Transport::get_thermal_status(
   auto& card = m_cards[card_index];
   std::lock_guard<std::mutex> guard(card->control_mutex);
   if (!card->device) return std::nullopt;
-  return card->device->GetThermalStatus();
+  try {
+    return card->device->GetThermalStatus();
+  } catch (const std::exception& ex) {
+    // Statistics must survive a failed USB read while the radio recovers.
+    card->logger->warn("Thermal read failed for {}: {}", card->interface_name,
+                       ex.what());
+    return std::nullopt;
+  }
 }
 
 std::optional<Transport::QualitySnapshot> Transport::get_quality_snapshot(
