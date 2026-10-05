@@ -5,6 +5,7 @@
 #include <libusb-1.0/libusb.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <cstring>
@@ -180,6 +181,7 @@ struct Transport::Card {
   std::shared_ptr<devourer::UsbDeviceLock> lock;
   std::unique_ptr<DevourerRadioInterface> device;
   std::thread rx_thread;
+  std::atomic<bool> rx_stop_requested{true};
   std::mutex control_mutex;
   std::optional<std::chrono::steady_clock::time_point> tx_timeout_since;
 
@@ -274,6 +276,7 @@ struct Transport::Card {
   }
 
   void stop_rx() {
+    rx_stop_requested = true;
     if (device) device->StopRxLoop();
     if (rx_thread.joinable()) rx_thread.join();
   }
@@ -506,6 +509,7 @@ void Transport::start_rx(RxCallback callback, FatalCallback fatal_callback) {
   for (int i = 0; i < static_cast<int>(m_cards.size()); ++i) {
     auto* card = m_cards[i].get();
     if (card->rx_thread.joinable()) continue;
+    card->rx_stop_requested = false;
     card->rx_thread = std::thread([this, card, i, callback, fatal_callback]() {
       try {
         card->device->StartRxLoop(
@@ -525,10 +529,17 @@ void Transport::start_rx(RxCallback callback, FatalCallback fatal_callback) {
               }
               callback(i, packet);
             });
+        // A USB disconnect can end Devourer's RX loop without throwing.
+        // Notify the supervisor unless we deliberately stopped reception.
+        if (!card->rx_stop_requested) {
+          card->logger->error("RX loop exited unexpectedly for {}",
+                              card->interface_name);
+          if (fatal_callback) fatal_callback(ENODEV);
+        }
       } catch (const std::exception& ex) {
         card->logger->error("RX loop failed for {}: {}", card->interface_name,
                             ex.what());
-        if (fatal_callback) fatal_callback(ENODEV);
+        if (!card->rx_stop_requested && fatal_callback) fatal_callback(ENODEV);
       }
     });
   }
@@ -618,6 +629,7 @@ std::optional<devourer::FhssSession::Status> Transport::get_fhss_status() const 
 
 void Transport::stop_rx() {
   for (auto& card : m_cards) {
+    card->rx_stop_requested = true;
     if (card->device) card->device->StopRxLoop();
   }
   for (auto& card : m_cards) {
