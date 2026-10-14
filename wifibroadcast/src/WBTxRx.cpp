@@ -1354,6 +1354,16 @@ WBTxRx::get_devourer_quality_snapshot(const int card_index) {
 #endif
 }
 
+std::optional<WBTxRx::DevourerSurveySample> WBTxRx::measure_devourer_survey(int card_index) {
+#ifdef WIFIBROADCAST_WITH_DEVOURER
+  if (!m_devourer) return std::nullopt;
+  const auto sample = m_devourer->transport->measure_survey(card_index);
+  if (sample) return DevourerSurveySample{sample->nhm_valid, sample->busy_valid,
+                                        sample->nhm_env_percent, sample->busy_percent};
+#endif
+  return std::nullopt;
+}
+
 void WBTxRx::announce_session_key_if_needed() {
   const auto cur_ts = std::chrono::steady_clock::now();
   if (cur_ts >= m_session_key_next_announce_ts) {

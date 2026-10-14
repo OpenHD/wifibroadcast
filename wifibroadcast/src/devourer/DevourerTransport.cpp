@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "DeviceConfig.h"
+#include "sensing/SenseWindow.h"
 #if defined(__has_include) && __has_include("IRadio.h")
 #include "IRadio.h"
 using DevourerRadioInterface = IRadio;
@@ -535,6 +536,46 @@ std::optional<Transport::QualitySnapshot> Transport::get_quality_snapshot(
     // must not escape the OpenHD statistics thread and terminate the process.
     card->logger->warn("Quality read failed for {}: {}", card->interface_name,
                        ex.what());
+    return std::nullopt;
+  }
+}
+
+std::optional<Transport::SurveySample> Transport::measure_survey(int card_index) {
+  if (card_index < 0 || card_index >= static_cast<int>(m_cards.size()))
+    return std::nullopt;
+  auto& card = m_cards[card_index];
+  std::lock_guard<std::mutex> guard(card->control_mutex);
+  if (!card->device) return std::nullopt;
+  try {
+    devourer::sensing::SenseWindow window(
+        card->device.get(), dynamic_cast<IRtlRadio*>(card->device.get()));
+    devourer::sensing::SenseOptions options;
+    window.barrier(options);
+    uint64_t nhm_sum = 0, nhm_weight = 0;
+    uint64_t busy_sum = 0, busy_weight = 0;
+    // Spread short CCX samples across the dwell instead of judging a channel
+    // by a single ~2 ms snapshot that can miss intermittent transmitters.
+    for (int i = 0; i < 5; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      const auto sample = window.read(options);
+      if (sample.read_failed || sample.counters_suspect) continue;
+      if (sample.nhm.valid) {
+        nhm_sum += static_cast<uint64_t>(sample.nhm.env_pct) * sample.nhm.total;
+        nhm_weight += sample.nhm.total;
+      }
+      if (sample.busy.valid_busy && sample.busy.window_us > 0) {
+        busy_sum += static_cast<uint64_t>(sample.busy.busy_pct) * sample.busy.window_us;
+        busy_weight += sample.busy.window_us;
+      }
+    }
+    SurveySample result;
+    result.nhm_valid = nhm_weight != 0;
+    result.busy_valid = busy_weight != 0;
+    if (result.nhm_valid) result.nhm_env_percent = (nhm_sum + nhm_weight / 2) / nhm_weight;
+    if (result.busy_valid) result.busy_percent = (busy_sum + busy_weight / 2) / busy_weight;
+    return result;
+  } catch (const std::exception& ex) {
+    card->logger->warn("Channel survey failed for {}: {}", card->interface_name, ex.what());
     return std::nullopt;
   }
 }

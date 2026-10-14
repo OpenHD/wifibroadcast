@@ -58,6 +58,15 @@ class Transport {
     devourer::ActiveRxPaths paths;
   };
   std::optional<QualitySnapshot> get_quality_snapshot(int card_index);
+  struct SurveySample {
+    bool nhm_valid = false;
+    bool busy_valid = false;
+    uint8_t nhm_env_percent = 0;
+    uint8_t busy_percent = 0;
+  };
+  // Passive 100 ms observation on the already tuned channel. Holds the
+  // control lock so telemetry cannot drain the shared measurement counters.
+  std::optional<SurveySample> measure_survey(int card_index);
   void start_rx(RxCallback callback, FatalCallback fatal_callback);
   void stop_rx();
   bool start_fhss(const FhssConfig& config);
