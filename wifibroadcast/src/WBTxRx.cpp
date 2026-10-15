@@ -1224,6 +1224,17 @@ int WBTxRx::set_devourer_tx_power_offset_qdb(const int card_index,
   return 0;
 }
 
+std::string WBTxRx::get_devourer_tx_power_diagnostics(const int card_index) {
+#ifdef WIFIBROADCAST_WITH_DEVOURER
+  std::lock_guard<std::mutex> guard(m_tx_mutex);
+  if (m_devourer)
+    return m_devourer->transport->get_tx_power_diagnostics(card_index);
+#else
+  (void)card_index;
+#endif
+  return "unavailable: Devourer inactive";
+}
+
 int WBTxRx::set_devourer_tx_power_level(const int card_index, const int level,
                                         const int normal_offset_qdb) {
 #ifdef WIFIBROADCAST_WITH_DEVOURER

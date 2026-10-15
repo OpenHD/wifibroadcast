@@ -299,6 +299,7 @@ class WBTxRx {
   int set_devourer_tx_power_offset_qdb(int card_index, int offset_qdb);
   int set_devourer_tx_power_level(int card_index, int level,
                                   int normal_offset_qdb);
+  std::string get_devourer_tx_power_diagnostics(int card_index);
   enum class DevourerFhssRole { Authority, Follower };
   enum class DevourerFhssState {
     Disabled,

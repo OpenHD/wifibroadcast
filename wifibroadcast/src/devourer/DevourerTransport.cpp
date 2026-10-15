@@ -12,9 +12,11 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <iomanip>
 #include <mutex>
 #include <optional>
 #include <stdexcept>
+#include <sstream>
 #include <thread>
 #include <utility>
 
@@ -457,6 +459,42 @@ int Transport::set_tx_power_offset_qdb(const int card_index,
   // that calibrated baseline before applying the relative control.
   card->device->SetTxPowerIndexOverride(-1);
   return card->device->SetTxPowerOffsetQdb(offset_qdb);
+}
+
+std::string Transport::get_tx_power_diagnostics(const int card_index) {
+  if (card_index < 0 || card_index >= static_cast<int>(m_cards.size()))
+    return "unavailable: invalid card index";
+  auto& card = m_cards[card_index];
+  std::lock_guard<std::mutex> guard(card->control_mutex);
+  if (!card->device) return "unavailable: no device";
+  try {
+    const auto caps = card->device->GetTxPowerCaps();
+    const auto s = card->device->GetTxPowerDiagnosticState();
+    std::ostringstream text;
+    text << std::boolalpha << "valid=" << s.valid
+         << " hw_readback=" << s.hw_readback << " flat_index=" << s.flat_index
+         << " offset_qdb=" << s.offset_qdb << " offset_steps=" << s.offset_steps
+         << " step_qdb=" << int(caps.step_qdb) << " index_max=" << int(caps.index_max)
+         << " saturated_low=" << s.saturated_low << " saturated_high=" << s.saturated_high
+         << " cck=" << s.cck_index << " ofdm=" << s.ofdm_index
+         << " mcs7=" << s.mcs7_index << " custom_rate_diffs=" << s.rate_diffs_custom;
+    for (uint8_t p = 0; p < s.jaguar1_paths; ++p) {
+      const auto actual0 = s.jaguar1_mcs03[p] & 0xff;
+      const auto actual7 = (s.jaguar1_mcs47[p] >> 24) & 0xff;
+      text << " path" << int(p) << "[mcs03=0x" << std::hex << std::setfill('0')
+           << std::setw(8) << s.jaguar1_mcs03[p]
+           << " mcs47=0x" << std::setw(8) << s.jaguar1_mcs47[p]
+           << " training=0x" << std::setw(8) << s.jaguar1_training[p]
+           << " swing=0x" << std::setw(8) << s.jaguar1_swing[p] << std::dec
+           << " mcs0=" << actual0 << "/expected:" << int(s.jaguar1_expected_mcs0[p])
+           << " mcs7=" << actual7 << "/expected:" << int(s.jaguar1_expected_mcs7[p])
+           << " match=" << (actual0 == s.jaguar1_expected_mcs0[p] &&
+                              actual7 == s.jaguar1_expected_mcs7[p]) << "]";
+    }
+    return text.str();
+  } catch (const std::exception& ex) {
+    return std::string("readback failed: ") + ex.what();
+  }
 }
 
 int Transport::set_tx_power_level(const int card_index, const int level,
