@@ -481,9 +481,13 @@ std::string Transport::get_tx_power_diagnostics(const int card_index) {
     text << " write_status_valid=" << s.tx_write_status_valid
          << " txagc_attempted=" << s.txagc_writes_attempted
          << " txagc_failed=" << s.txagc_writes_failed;
+    bool txagc_matches = true;
     for (uint8_t p = 0; p < s.jaguar1_paths; ++p) {
       const auto actual0 = s.jaguar1_mcs03[p] & 0xff;
       const auto actual7 = (s.jaguar1_mcs47[p] >> 24) & 0xff;
+      txagc_matches = txagc_matches &&
+          actual0 == s.jaguar1_expected_mcs0[p] &&
+          actual7 == s.jaguar1_expected_mcs7[p];
       text << " path" << int(p) << "[mcs03=0x" << std::hex << std::setfill('0')
            << std::setw(8) << s.jaguar1_mcs03[p]
            << " mcs47=0x" << std::setw(8) << s.jaguar1_mcs47[p]
@@ -494,6 +498,20 @@ std::string Transport::get_tx_power_diagnostics(const int card_index) {
            << " match=" << (actual0 == s.jaguar1_expected_mcs0[p] &&
                               actual7 == s.jaguar1_expected_mcs7[p]) << "]";
     }
+    // This string is forwarded to the persistent power logger. Distinguish
+    // transfer completion from the sampled hardware state; neither measures RF.
+    const char* result = "unavailable";
+    if (s.tx_write_status_valid) {
+      if (s.txagc_writes_failed > 0)
+        result = "write_failed";
+      else if (s.txagc_writes_attempted == 0)
+        result = "no_writes_attempted";
+      else if (s.hw_readback && s.jaguar1_paths > 0)
+        result = txagc_matches ? "sampled_readback_matches" : "readback_mismatch";
+      else
+        result = "writes_completed_readback_unavailable";
+    }
+    text << " txagc_result=" << result;
     return text.str();
   } catch (const std::exception& ex) {
     return std::string("readback failed: ") + ex.what();
