@@ -478,6 +478,9 @@ std::string Transport::get_tx_power_diagnostics(const int card_index) {
          << " saturated_low=" << s.saturated_low << " saturated_high=" << s.saturated_high
          << " cck=" << s.cck_index << " ofdm=" << s.ofdm_index
          << " mcs7=" << s.mcs7_index << " custom_rate_diffs=" << s.rate_diffs_custom;
+    text << " write_status_valid=" << s.tx_write_status_valid
+         << " txagc_attempted=" << s.txagc_writes_attempted
+         << " txagc_failed=" << s.txagc_writes_failed;
     for (uint8_t p = 0; p < s.jaguar1_paths; ++p) {
       const auto actual0 = s.jaguar1_mcs03[p] & 0xff;
       const auto actual7 = (s.jaguar1_mcs47[p] >> 24) & 0xff;
