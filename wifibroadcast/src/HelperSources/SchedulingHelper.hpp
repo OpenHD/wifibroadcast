@@ -5,9 +5,13 @@
 #ifndef WIFIBROADCAST_SCHEDULINGHELPER_H
 #define WIFIBROADCAST_SCHEDULINGHELPER_H
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <pthread.h>
 #include <sys/resource.h>
 #include <unistd.h>
+#endif
 
 #include <fstream>
 #include <iostream>
@@ -27,6 +31,10 @@ static constexpr int PRIORITY_REALTIME_HIGH = 50;
 // threads that run at 99 that are really important So ... lets use 90 for now
 static void set_thread_params_max_realtime(const std::string& tag,
                                            const int priority = 90) {
+#ifdef _WIN32
+  if (!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL))
+    std::cerr << "Cannot set thread priority: " << tag << std::endl;
+#else
   pthread_t target = pthread_self();
   int policy = SCHED_FIFO;
   sched_param param{};
@@ -50,12 +58,17 @@ static void set_thread_params_max_realtime(const std::string& tag,
       std::cout << ss.str() << std::endl;
     }
   }
+#endif
 }
 
 static bool check_root() {
+#ifdef _WIN32
+  return false;
+#else
   const auto uid = getuid();
   const bool root = uid ? false : true;
   return root;
+#endif
 }
 
 }  // namespace SchedulingHelper

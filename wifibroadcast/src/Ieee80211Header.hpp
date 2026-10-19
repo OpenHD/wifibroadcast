@@ -1,7 +1,7 @@
 #ifndef __WIFIBROADCAST_IEEE80211_HEADER_HPP__
 #define __WIFIBROADCAST_IEEE80211_HEADER_HPP__
 
-#include <endian.h>
+#include "wb_endian.h"
 #include <spdlog/spdlog.h>
 
 #include <array>

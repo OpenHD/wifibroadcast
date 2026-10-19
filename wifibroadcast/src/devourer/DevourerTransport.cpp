@@ -47,6 +47,8 @@ namespace {
 struct UsbAddress {
   uint8_t bus = 0;
   uint8_t device = 0;
+  uint16_t vendor = 0;
+  uint16_t product = 0;
 };
 
 std::optional<int> read_int(const std::filesystem::path& path) {
@@ -57,6 +59,24 @@ std::optional<int> read_int(const std::filesystem::path& path) {
 }
 
 std::optional<UsbAddress> usb_address_for_interface(const std::string& name) {
+  // Windows bus numbering can change between libusb contexts. Resolve stable
+  // VID/PID selectors in the same context that will open the device.
+  const std::string id_prefix = "devourer-id-";
+  if (name.rfind(id_prefix, 0) == 0) {
+    const auto separator = name.find('-', id_prefix.size());
+    if (separator == std::string::npos) return std::nullopt;
+    try {
+      const auto vendor_text = name.substr(id_prefix.size(), separator - id_prefix.size());
+      const auto product_text = name.substr(separator + 1);
+      std::size_t vendor_used = 0, product_used = 0;
+      const auto vendor = std::stoul(vendor_text, &vendor_used, 16);
+      const auto product = std::stoul(product_text, &product_used, 16);
+      if (vendor_used == vendor_text.size() && product_used == product_text.size() &&
+          vendor > 0 && vendor <= 65535 && product > 0 && product <= 65535)
+        return UsbAddress{0, 0, static_cast<uint16_t>(vendor), static_cast<uint16_t>(product)};
+    } catch (...) {}
+    return std::nullopt;
+  }
   static constexpr const char* prefix = "devourer-usb-";
   if (name.rfind(prefix, 0) == 0) {
     const auto separator = name.find('-', std::char_traits<char>::length(prefix));
@@ -100,15 +120,26 @@ libusb_device_handle* open_address(libusb_context* context,
   const auto count = libusb_get_device_list(context, &devices);
   if (count < 0) return nullptr;
   libusb_device_handle* handle = nullptr;
+  libusb_device* selected = nullptr;
   for (ssize_t i = 0; i < count; ++i) {
     auto* device = devices[i];
-    if (libusb_get_bus_number(device) != address.bus ||
-        libusb_get_device_address(device) != address.device) {
-      continue;
+    if (address.vendor != 0) {
+      libusb_device_descriptor descriptor{};
+      if (libusb_get_device_descriptor(device, &descriptor) != 0 ||
+          descriptor.idVendor != address.vendor || descriptor.idProduct != address.product)
+        continue;
+      if (selected) {  // Refuse ambiguity without opening/resetting either radio.
+        libusb_free_device_list(devices, 1);
+        return nullptr;
+      }
+    } else {
+      if (libusb_get_bus_number(device) != address.bus ||
+          libusb_get_device_address(device) != address.device) continue;
     }
-    if (libusb_open(device, &handle) != 0) handle = nullptr;
-    break;
+    selected = device;
+    if (address.vendor == 0) break;
   }
+  if (selected && libusb_open(selected, &handle) != 0) handle = nullptr;
   libusb_free_device_list(devices, 1);
   return handle;
 }

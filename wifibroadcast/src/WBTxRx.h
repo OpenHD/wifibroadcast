@@ -5,8 +5,10 @@
 #ifndef WIFIBROADCAST_WBTXRX_H
 #define WIFIBROADCAST_WBTXRX_H
 
+#ifndef WB_DEVOURER_ONLY
 #include <pcap/pcap.h>
 #include <sys/poll.h>
+#endif
 
 #include <atomic>
 #include <array>
@@ -448,12 +450,14 @@ class WBTxRx {
   std::unique_ptr<wb::ExternalCryptoPlugin> m_external_crypto;
   bool m_logged_external_crypto_fallback = false;
   bool m_logged_external_crypto_rx_missing = false;
+#ifndef WB_DEVOURER_ONLY
   struct PcapTxRx {
     pcap_t* tx = nullptr;
     pcap_t* rx = nullptr;
     int tx_sockfd = -1;
   };
   std::vector<PcapTxRx> m_pcap_handles;
+#endif
 #ifdef WIFIBROADCAST_WITH_DEVOURER
   class DevourerHolder;
   std::unique_ptr<DevourerHolder> m_devourer;
@@ -466,7 +470,9 @@ class WBTxRx {
   bool keep_receiving = true;
   int m_n_receiver_errors = 0;
   std::unique_ptr<std::thread> m_receive_thread;
+#ifndef WB_DEVOURER_ONLY
   std::vector<pollfd> m_receive_pollfds;
+#endif
   std::chrono::steady_clock::time_point m_last_receiver_error_log =
       std::chrono::steady_clock::now();
   UINT16SeqNrHelper m_seq_nr_helper_iee80211;

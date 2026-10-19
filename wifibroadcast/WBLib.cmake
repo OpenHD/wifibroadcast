@@ -14,8 +14,14 @@ if (TARGET wifibroadcast)
     return()
 endif()
 
+option(WB_DEVOURER_ONLY "Build without Linux pcap/raw socket and dummy transports" OFF)
+
 add_library(wifibroadcast STATIC) # initialized below
 add_library(wifibroadcast::wifibroadcast ALIAS wifibroadcast)
+if(MINGW)
+    # Wire bitfields must match the GCC layout used by Linux air units.
+    target_compile_options(wifibroadcast PUBLIC -mno-ms-bitfields)
+endif()
 #target_compile_options(wifibroadcast INTERFACE -Wno-address-of-packed-member -Wno-cast-align)
 
 # the stuff in lib is a bit extra
@@ -34,7 +40,7 @@ target_sources(wifibroadcast PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/src/encryption/Decryptor.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/encryption/ExternalCryptoPlugin.cpp
         ##
-        ${CMAKE_CURRENT_LIST_DIR}/src/dummy_link/DummyLink.cpp
+
 
         ${CMAKE_CURRENT_LIST_DIR}/src/fec/FEC.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/fec/FECConstants.hpp
@@ -50,6 +56,15 @@ target_sources(wifibroadcast PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/src/wifibroadcast_spdlog.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/radiotap/RadiotapRxRfAggregator.cpp
 )
+
+if(WB_DEVOURER_ONLY)
+    if(NOT TARGET devourer)
+        message(FATAL_ERROR "WB_DEVOURER_ONLY requires the devourer target")
+    endif()
+    target_compile_definitions(wifibroadcast PUBLIC WB_DEVOURER_ONLY)
+else()
+    target_sources(wifibroadcast PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/dummy_link/DummyLink.cpp)
+endif()
 
 if(TARGET devourer)
     target_sources(wifibroadcast PRIVATE
@@ -117,7 +132,9 @@ endif ()
 ## FEC Optimizations end ---------------------------------
 
 # We need pcap and libsodium to build wifibroadcast
+if(NOT WB_DEVOURER_ONLY)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/FindPCAP.cmake)
+endif()
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/FindSodium.cmake)
 
 target_include_directories(wifibroadcast PUBLIC ${sodium_INCLUDE_DIR})

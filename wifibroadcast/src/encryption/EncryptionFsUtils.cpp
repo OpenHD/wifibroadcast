@@ -16,7 +16,7 @@
 bool wb::write_keypair_to_file(const wb::KeyPairTxRx& keypair_txrx,
                                const std::string& filename) {
   FILE* fp;
-  if ((fp = fopen(filename.c_str(), "w")) == nullptr) {
+  if ((fp = fopen(filename.c_str(), "wb")) == nullptr) {
     std::cerr << "Unable to save " << filename << std::endl;
     return false;
   }
@@ -35,7 +35,7 @@ std::optional<wb::KeyPairTxRx> wb::read_keypair_from_file(
     const std::string& filename) {
   KeyPairTxRx ret{};
   FILE* fp;
-  if ((fp = fopen(filename.c_str(), "r")) == nullptr) {
+  if ((fp = fopen(filename.c_str(), "rb")) == nullptr) {
     std::cerr << fmt::format("Unable to open {}: {}", filename.c_str(),
                              strerror(errno))
               << std::endl;

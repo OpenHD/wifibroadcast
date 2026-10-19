@@ -12,8 +12,10 @@
 #include "../radiotap/RadiotapHeaderRx.hpp"
 #include "../radiotap/radiotap_util.hpp"
 #include "SchedulingHelper.hpp"
+#ifndef WB_DEVOURER_ONLY
 #include "pcap_helper.hpp"
 #include "raw_socket_helper.hpp"
+#endif
 #ifdef WIFIBROADCAST_WITH_DEVOURER
 #include "devourer/DevourerTransport.h"
 #include "RxPacket.h"
@@ -75,7 +77,9 @@ WBTxRx::WBTxRx(
   if (!m_options.external_crypto_plugin_path.empty()) {
     load_external_encryption_plugin(m_options.external_crypto_plugin_path);
   }
+#ifndef WB_DEVOURER_ONLY
   m_receive_pollfds.resize(m_wifi_cards.size());
+#endif
   m_active_tx_card_data.resize(m_wifi_cards.size());
   for (int i = 0; i < m_wifi_cards.size(); i++) {
     RxStatsPerCard tmp{};
@@ -120,9 +124,11 @@ WBTxRx::~WBTxRx() {
 }
 
 bool WBTxRx::open_interfaces() {
+#ifndef WB_DEVOURER_ONLY
   m_receive_pollfds.assign(m_wifi_cards.size(), pollfd{-1, 0, 0});
   m_pcap_handles.clear();
   m_pcap_handles.reserve(m_wifi_cards.size());
+#endif
   m_optional_dummy_link = nullptr;
 #ifdef WIFIBROADCAST_WITH_DEVOURER
   if (m_options.use_devourer) {
@@ -144,7 +150,9 @@ bool WBTxRx::open_interfaces() {
                 m_options.devourer_channel_width_mhz});
     if (!transport->open()) return false;
     m_devourer = std::make_unique<DevourerHolder>(std::move(transport));
+#ifndef WB_DEVOURER_ONLY
     m_pcap_handles.resize(m_wifi_cards.size());
+#endif
     m_console->info("Using OpenIPC Devourer userspace WiFi backend");
     return true;
   }
@@ -154,6 +162,10 @@ bool WBTxRx::open_interfaces() {
     return false;
   }
 #endif
+#ifdef WB_DEVOURER_ONLY
+  m_console->error("This build requires the Devourer USB backend");
+  return false;
+#else
   for (std::size_t i = 0; i < m_wifi_cards.size(); ++i) {
     const auto& wifi_card = m_wifi_cards[i];
     PcapTxRx handle{};
@@ -214,6 +226,7 @@ bool WBTxRx::open_interfaces() {
     m_pcap_handles.push_back(handle);
   }
   return true;
+#endif
 }
 
 void WBTxRx::close_interfaces() {
@@ -222,6 +235,7 @@ void WBTxRx::close_interfaces() {
     m_devourer.reset();
   }
 #endif
+#ifndef WB_DEVOURER_ONLY
   for (auto& pcapTxRx : m_pcap_handles) {
     if (pcapTxRx.rx == pcapTxRx.tx) {
       if (pcapTxRx.rx) pcap_close(pcapTxRx.rx);
@@ -241,6 +255,7 @@ void WBTxRx::close_interfaces() {
   }
   m_pcap_handles.clear();
   for (auto& pollfd : m_receive_pollfds) pollfd = {-1, 0, 0};
+#endif
   m_optional_dummy_link = nullptr;
 }
 
@@ -428,17 +443,23 @@ bool WBTxRx::inject_radiotap_packet(int card_index, const uint8_t* packet_buff,
   std::string devourer_failure_reason;
   // we inject the packet on whatever card has the highest rx rssi right now
   const auto before_inject = std::chrono::steady_clock::now();
+#ifndef WB_DEVOURER_ONLY
   if (m_optional_dummy_link) {
     m_optional_dummy_link->tx_radiotap(packet_buff, packet_size);
     len_injected = packet_size;
+#endif
 #ifdef WIFIBROADCAST_WITH_DEVOURER
-  } else if (m_devourer) {
+#ifndef WB_DEVOURER_ONLY
+  } else
+#endif
+  if (m_devourer) {
     len_injected = m_devourer->transport->send(card_index, packet_buff,
                                                packet_size, &devourer_fatal_error,
                                                &devourer_failure_reason)
                        ? packet_size
                        : -1;
 #endif
+#ifndef WB_DEVOURER_ONLY
   } else if (m_options.tx_without_pcap) {
     len_injected = (int)write(m_pcap_handles[card_index].tx_sockfd, packet_buff,
                               packet_size);
@@ -448,6 +469,9 @@ bool WBTxRx::inject_radiotap_packet(int card_index, const uint8_t* packet_buff,
     // const auto
     // len_injected=write(m_receive_pollfds[card_index].fd,packet_buff,packet_size);
   }
+#else
+  }
+#endif
   const auto delta_inject = std::chrono::steady_clock::now() - before_inject;
   if (delta_inject >= m_options.max_sane_injection_time) {
     m_tx_stats.count_tx_injections_error_hint++;
@@ -484,10 +508,12 @@ bool WBTxRx::inject_radiotap_packet(int card_index, const uint8_t* packet_buff,
         m_console->warn("Fatal error, no device");
         has_fatal_error = true;
       }
+#ifndef WB_DEVOURER_ONLY
     } else {
       m_console->warn("pcap -unable to inject packet size:{} ret:{} err:[{}]",
                       packet_size, len_injected,
                       pcap_geterr(m_pcap_handles[card_index].tx));
+#endif
     }
     m_tx_stats.count_tx_dropped_packets++;
     if (has_fatal_error) {
@@ -515,6 +541,7 @@ void WBTxRx::rx_unregister_stream_handler(uint8_t radio_port) {
   m_rx_handlers.erase(radio_port);
 }
 
+#ifndef WB_DEVOURER_ONLY
 void WBTxRx::loop_receive_packets() {
   if (m_options.receive_thread_max_realtime) {
     SchedulingHelper::set_thread_params_max_realtime(
@@ -657,6 +684,11 @@ int WBTxRx::loop_iter_raw(const int rx_index) {
   }
   return nPacketsPolledUntilQueueWasEmpty;
 }
+
+#else
+void WBTxRx::loop_receive_packets() {}
+int WBTxRx::loop_iter_pcap(int) { return 0; }
+#endif
 
 void WBTxRx::on_new_packet(const uint8_t wlan_idx, const uint8_t* pkt,
                            const int pkt_len) {

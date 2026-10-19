@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "endian.h"
+#include "wb_endian.h"
 /**
  * Encoder and Decoder pair for FEC protected block / packet based data
  * streaming. adds sizeof(FECPayloadHdr) to each fec primary or secondary

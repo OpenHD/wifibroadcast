@@ -7,7 +7,7 @@ extern "C" {
 #include "../../lib/radiotap/radiotap_iter.h"
 };
 
-#include <endian.h>
+#include "wb_endian.h"
 
 #include <cassert>
 #include <cerrno>
