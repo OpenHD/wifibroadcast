@@ -175,7 +175,7 @@ std::optional<SelectedChannel> selected_channel(Channel channel) {
       // within each standard four-channel block. ChannelOffset follows the
       // HAL convention: 1 = HT40+ (secondary above), 2 = HT40- (below).
       if (number <= 14) {
-        channel_offset = ((number - 1) / 4) % 2 == 0 ? 1 : 2;
+        channel_offset = number <= 9 && ((number - 1) / 4) % 2 == 0 ? 1 : 2;
       } else if (number <= 36 || number >= 181) {
         channel_offset = 1;
       } else if (number >= 149) {
@@ -630,7 +630,7 @@ std::optional<Transport::QualitySnapshot> Transport::get_quality_snapshot(
   }
 }
 
-std::optional<Transport::SurveySample> Transport::measure_survey(int card_index) {
+std::optional<Transport::SurveySample> Transport::measure_survey(int card_index, int sample_count) {
   if (card_index < 0 || card_index >= static_cast<int>(m_cards.size()))
     return std::nullopt;
   auto& card = m_cards[card_index];
@@ -645,10 +645,12 @@ std::optional<Transport::SurveySample> Transport::measure_survey(int card_index)
     uint64_t busy_sum = 0, busy_weight = 0;
     // Spread short CCX samples across the dwell instead of judging a channel
     // by a single ~2 ms snapshot that can miss intermittent transmitters.
-    for (int i = 0; i < 5; ++i) {
+    // Bound caller-supplied counts; Quick uses 10; Medium/Detailed use 20 per visit.
+    for (int i = 0; i < std::clamp(sample_count, 1, 20); ++i) {
       std::this_thread::sleep_for(std::chrono::milliseconds(20));
       const auto sample = window.read(options);
-      if (sample.read_failed || sample.counters_suspect) continue;
+      // FA/CCA event counters and CCX histograms have independent validity.
+      // A wrapped event counter must not discard a valid NHM/CLM reading.
       if (sample.nhm.valid) {
         nhm_sum += static_cast<uint64_t>(sample.nhm.env_pct) * sample.nhm.total;
         nhm_weight += sample.nhm.total;

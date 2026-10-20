@@ -1397,10 +1397,10 @@ WBTxRx::get_devourer_quality_snapshot(const int card_index) {
 #endif
 }
 
-std::optional<WBTxRx::DevourerSurveySample> WBTxRx::measure_devourer_survey(int card_index) {
+std::optional<WBTxRx::DevourerSurveySample> WBTxRx::measure_devourer_survey(int card_index, int sample_count) {
 #ifdef WIFIBROADCAST_WITH_DEVOURER
   if (!m_devourer) return std::nullopt;
-  const auto sample = m_devourer->transport->measure_survey(card_index);
+  const auto sample = m_devourer->transport->measure_survey(card_index, sample_count);
   if (sample) return DevourerSurveySample{sample->nhm_valid, sample->busy_valid,
                                         sample->nhm_env_percent, sample->busy_percent};
 #endif

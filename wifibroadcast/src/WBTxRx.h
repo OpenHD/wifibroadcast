@@ -370,7 +370,7 @@ class WBTxRx {
     bool nhm_valid = false, busy_valid = false;
     uint8_t nhm_env_percent = 0, busy_percent = 0;
   };
-  std::optional<DevourerSurveySample> measure_devourer_survey(int card_index);
+  std::optional<DevourerSurveySample> measure_devourer_survey(int card_index, int sample_count = 5);
   [[nodiscard]] bool uses_devourer() const { return m_options.use_devourer; }
   // For development only
   std::shared_ptr<DummyLink> get_dummy_link();
