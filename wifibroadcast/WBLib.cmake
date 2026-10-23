@@ -135,12 +135,19 @@ endif ()
 if(NOT WB_DEVOURER_ONLY)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/FindPCAP.cmake)
 endif()
-include(${CMAKE_CURRENT_LIST_DIR}/cmake/FindSodium.cmake)
+# Prefer a CMake package (vcpkg ships unofficial-sodium, which also carries
+# SODIUM_STATIC for static triplets); fall back to the bundled find module.
+find_package(unofficial-sodium CONFIG QUIET)
+if(TARGET unofficial-sodium::sodium)
+    target_link_libraries(wifibroadcast PUBLIC unofficial-sodium::sodium)
+else()
+    include(${CMAKE_CURRENT_LIST_DIR}/cmake/FindSodium.cmake)
+    target_include_directories(wifibroadcast PUBLIC ${sodium_INCLUDE_DIR})
+    target_link_libraries(wifibroadcast PUBLIC ${sodium_LIBRARY_RELEASE})
+endif()
 
-target_include_directories(wifibroadcast PUBLIC ${sodium_INCLUDE_DIR})
 target_include_directories(wifibroadcast PUBLIC ${PCAP_INCLUDE_DIR})
 target_link_libraries(wifibroadcast PUBLIC ${PCAP_LIBRARY})
-target_link_libraries(wifibroadcast PUBLIC ${sodium_LIBRARY_RELEASE})
 target_link_libraries(wifibroadcast PUBLIC ${CMAKE_DL_LIBS})
 
 # for some reason, we also need to manually link pthread
