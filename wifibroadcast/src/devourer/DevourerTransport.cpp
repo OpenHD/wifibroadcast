@@ -221,7 +221,7 @@ struct Transport::Card {
 
   ~Card() { close(); }
 
-  bool open(Channel channel) {
+  bool open(Channel channel, bool reset_usb_on_open) {
     const auto address = usb_address_for_interface(interface_name);
     if (!address) {
       logger->error("Cannot resolve {} to a USB device", interface_name);
@@ -237,7 +237,7 @@ struct Transport::Card {
     }
     interface_number = devourer::find_wifi_interface(handle);
     const int rc = devourer::claim_interface_reset_reopen(
-        context, handle, logger, true, lock);
+        context, handle, logger, reset_usb_on_open, lock);
     if (rc != 0) {
       logger->error("Cannot claim {} (libusb rc={})", interface_name, rc);
       close();
@@ -316,8 +316,10 @@ struct Transport::Card {
   }
 };
 
-Transport::Transport(std::vector<std::string> interface_names, Channel channel, std::string log_path)
-    : m_interface_names(std::move(interface_names)), m_channel(channel), m_log_path(std::move(log_path)) {}
+Transport::Transport(std::vector<std::string> interface_names, Channel channel,
+                     std::string log_path, bool reset_usb_on_open)
+    : m_interface_names(std::move(interface_names)), m_channel(channel),
+      m_log_path(std::move(log_path)), m_reset_usb_on_open(reset_usb_on_open) {}
 
 Transport::~Transport() { close(); }
 
@@ -333,7 +335,7 @@ bool Transport::open() {
         card->logger->set_diag_stream(card->log_file);
       }
     }
-    if (!card->open(m_channel)) {
+    if (!card->open(m_channel, m_reset_usb_on_open)) {
       close();
       return false;
     }

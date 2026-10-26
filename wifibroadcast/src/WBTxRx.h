@@ -125,6 +125,9 @@ class WBTxRx {
     // Bypass the Linux networking stack and drive supported Realtek USB
     // adapters directly through OpenIPC Devourer.
     bool use_devourer = false;
+    // Some embedded USB hosts lose Jaguar adapters during a USB-level reset.
+    // Their caller can rely on Devourer's chip power sequence instead.
+    bool devourer_reset_usb_on_open = true;
     int devourer_frequency_mhz = 0;
     int devourer_channel_width_mhz = 20;
     std::string devourer_log_path;
