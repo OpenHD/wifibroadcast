@@ -34,6 +34,9 @@
 #include "UINT16SeqNrHelper.hpp"
 #include "UINT64SeqNrHelper.hpp"
 #include "WiFiCard.h"
+#ifdef WIFIBROADCAST_WITH_DEVOURER
+#include "AdapterCaps.h"
+#endif
 
 /**
  * This class exists to provide a clean, working interface to create a
@@ -305,6 +308,9 @@ class WBTxRx {
   int set_devourer_tx_power_level(int card_index, int level,
                                   int normal_offset_qdb);
   std::string get_devourer_tx_power_diagnostics(int card_index);
+#ifdef WIFIBROADCAST_WITH_DEVOURER
+  std::optional<devourer::AdapterCaps> get_devourer_adapter_caps(int card_index);
+#endif
   enum class DevourerFhssRole { Authority, Follower };
   enum class DevourerFhssState {
     Disabled,

@@ -13,6 +13,7 @@
 #include "FhssSession.h"
 #include "ThermalStatus.h"
 #include "RxQuality.h"
+#include "AdapterCaps.h"
 
 struct Packet;
 
@@ -54,6 +55,7 @@ class Transport {
   int set_tx_power_offset_qdb(int card_index, int offset_qdb);
   int set_tx_power_level(int card_index, int level, int normal_offset_qdb);
   std::string get_tx_power_diagnostics(int card_index);
+  std::optional<devourer::AdapterCaps> get_adapter_caps(int card_index);
   std::optional<devourer::ThermalStatus> get_thermal_status(int card_index);
   struct QualitySnapshot {
     devourer::RxQuality quality;

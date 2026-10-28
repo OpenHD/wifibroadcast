@@ -494,6 +494,14 @@ int Transport::set_tx_power_offset_qdb(const int card_index,
   return card->device->SetTxPowerOffsetQdb(offset_qdb);
 }
 
+std::optional<devourer::AdapterCaps> Transport::get_adapter_caps(int card_index) {
+  if (card_index < 0 || card_index >= static_cast<int>(m_cards.size())) return std::nullopt;
+  auto& card = m_cards[card_index];
+  std::lock_guard<std::mutex> guard(card->control_mutex);
+  if (!card->device) return std::nullopt;
+  return card->device->GetAdapterCaps();
+}
+
 std::string Transport::get_tx_power_diagnostics(const int card_index) {
   if (card_index < 0 || card_index >= static_cast<int>(m_cards.size()))
     return "unavailable: invalid card index";

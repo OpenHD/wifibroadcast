@@ -1590,3 +1590,9 @@ void WBTxRx::PerCardCalculators::reset_all() {
   seq_nr.reset();
   rf_aggregator.reset();
 }
+#ifdef WIFIBROADCAST_WITH_DEVOURER
+std::optional<devourer::AdapterCaps> WBTxRx::get_devourer_adapter_caps(int card_index) {
+  if (!m_devourer) return std::nullopt;
+  return m_devourer->transport->get_adapter_caps(card_index);
+}
+#endif
