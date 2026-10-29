@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <mutex>
+#include <functional>
 
 /**
  * Uses UDP for data in instead of callback, specifically for
@@ -19,7 +20,8 @@ class WBDataStreamTxUDP {
   WBDataStreamTxUDP(std::shared_ptr<WBTxRx> txrx, WBStreamTx::Options options,
                     int fec_k, int in_udp_port, int fec_overhead_percent = 20,
                     int max_payload_bitrate_kbits = 0,
-                    std::shared_ptr<RadiotapHeaderTxHolder> tx_header = nullptr) {
+                    std::shared_ptr<RadiotapHeaderTxHolder> tx_header = nullptr,
+                    std::function<void(std::size_t)> on_accepted_payload = {}) {
     options.default_packet_type = WB_PACKET_TYPE_DATA;
     radiotap_header_holder = tx_header ? std::move(tx_header)
                                       : std::make_shared<RadiotapHeaderTxHolder>();
@@ -28,7 +30,7 @@ class WBDataStreamTxUDP {
 
     m_fec_overhead_percent = fec_overhead_percent;
     m_max_payload_bitrate_kbits = max_payload_bitrate_kbits;
-    auto cb_udp_in = [this, options, fec_k](
+    auto cb_udp_in = [this, options, fec_k, on_accepted_payload](
                          const uint8_t *payload,
                          const std::size_t payloadSize) mutable {
       last_udp_in_packet_ts_ms = MyTimeHelper::get_curr_time_ms();
@@ -37,6 +39,7 @@ class WBDataStreamTxUDP {
         return;
       }
       m_accepted_bytes += payloadSize;
+      if (on_accepted_payload) on_accepted_payload(payloadSize);
       if (options.enable_fec) {
         auto packet = std::make_shared<std::vector<uint8_t>>(
             payload, payload + payloadSize);
