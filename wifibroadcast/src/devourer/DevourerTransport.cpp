@@ -1,4 +1,5 @@
 #include "DevourerTransport.h"
+#include "RxLoopWorker.h"
 
 #ifdef WIFIBROADCAST_WITH_DEVOURER
 
@@ -214,8 +215,7 @@ struct Transport::Card {
   int interface_number = -1;
   std::shared_ptr<devourer::UsbDeviceLock> lock;
   std::unique_ptr<DevourerRadioInterface> device;
-  std::thread rx_thread;
-  std::atomic<bool> rx_stop_requested{true};
+  RxLoopWorker rx_worker;
   std::mutex control_mutex;
   std::optional<std::chrono::steady_clock::time_point> tx_timeout_since;
 
@@ -310,9 +310,9 @@ struct Transport::Card {
   }
 
   void stop_rx() {
-    rx_stop_requested = true;
-    if (device) device->StopRxLoop();
-    if (rx_thread.joinable()) rx_thread.join();
+    rx_worker.stop_and_join([this] {
+      if (device) device->StopRxLoop();
+    });
   }
 };
 
@@ -685,9 +685,8 @@ std::optional<Transport::SurveySample> Transport::measure_survey(int card_index,
 void Transport::start_rx(RxCallback callback, FatalCallback fatal_callback) {
   for (int i = 0; i < static_cast<int>(m_cards.size()); ++i) {
     auto* card = m_cards[i].get();
-    if (card->rx_thread.joinable()) continue;
-    card->rx_stop_requested = false;
-    card->rx_thread = std::thread([this, card, i, callback, fatal_callback]() {
+    if (card->rx_worker.joinable()) continue;
+    card->rx_worker.start([this, card, i, callback, fatal_callback]() {
       try {
         card->device->StartRxLoop(
             [this, i, callback](const Packet& packet) {
@@ -708,7 +707,7 @@ void Transport::start_rx(RxCallback callback, FatalCallback fatal_callback) {
             });
         // A USB disconnect can end Devourer's RX loop without throwing.
         // Notify the supervisor unless we deliberately stopped reception.
-        if (!card->rx_stop_requested) {
+        if (!card->rx_worker.stop_requested()) {
           card->logger->error("RX loop exited unexpectedly for {}",
                               card->interface_name);
           if (fatal_callback) fatal_callback(ENODEV);
@@ -716,7 +715,8 @@ void Transport::start_rx(RxCallback callback, FatalCallback fatal_callback) {
       } catch (const std::exception& ex) {
         card->logger->error("RX loop failed for {}: {}", card->interface_name,
                             ex.what());
-        if (!card->rx_stop_requested && fatal_callback) fatal_callback(ENODEV);
+        if (!card->rx_worker.stop_requested() && fatal_callback)
+          fatal_callback(ENODEV);
       }
     });
   }
@@ -806,11 +806,10 @@ std::optional<devourer::FhssSession::Status> Transport::get_fhss_status() const 
 
 void Transport::stop_rx() {
   for (auto& card : m_cards) {
-    card->rx_stop_requested = true;
-    if (card->device) card->device->StopRxLoop();
+    card->rx_worker.request_stop();
   }
   for (auto& card : m_cards) {
-    if (card->rx_thread.joinable()) card->rx_thread.join();
+    card->stop_rx();
   }
 }
 
