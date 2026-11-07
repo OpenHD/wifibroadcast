@@ -148,7 +148,8 @@ bool WBTxRx::open_interfaces() {
             wifibroadcast::devourer_transport::Channel{
                 m_options.devourer_frequency_mhz,
                 m_options.devourer_channel_width_mhz},
-            "", m_options.devourer_reset_usb_on_open);
+            "", m_options.devourer_reset_usb_on_open,
+            m_options.devourer_register_batching);
     if (!transport->open()) return false;
     m_devourer = std::make_unique<DevourerHolder>(std::move(transport));
 #ifndef WB_DEVOURER_ONLY

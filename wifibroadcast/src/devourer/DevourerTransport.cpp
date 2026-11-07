@@ -221,7 +221,7 @@ struct Transport::Card {
 
   ~Card() { close(); }
 
-  bool open(Channel channel, bool reset_usb_on_open) {
+  bool open(Channel channel, bool reset_usb_on_open, bool register_batching) {
     const auto address = usb_address_for_interface(interface_name);
     if (!address) {
       logger->error("Cannot resolve {} to a USB device", interface_name);
@@ -246,6 +246,15 @@ struct Transport::Card {
     interface_number = devourer::find_wifi_interface(handle);
     devourer::DeviceConfig config;
     config.rx.enable_with_tx = true;
+#ifdef DEVOURER_HAS_USB_REGISTER_BATCHING
+    config.usb.register_batching = register_batching;
+#else
+    if (!register_batching) {
+      logger->error("This host requires Devourer synchronous register support");
+      close();
+      return false;
+    }
+#endif
     WiFiDriver factory(logger);
     device = DEVOURER_CREATE_RADIO(factory, handle, context, lock, config);
     const auto selected = selected_channel(channel);
@@ -317,9 +326,11 @@ struct Transport::Card {
 };
 
 Transport::Transport(std::vector<std::string> interface_names, Channel channel,
-                     std::string log_path, bool reset_usb_on_open)
+                     std::string log_path, bool reset_usb_on_open,
+                     bool register_batching)
     : m_interface_names(std::move(interface_names)), m_channel(channel),
-      m_log_path(std::move(log_path)), m_reset_usb_on_open(reset_usb_on_open) {}
+      m_log_path(std::move(log_path)), m_reset_usb_on_open(reset_usb_on_open),
+      m_register_batching(register_batching) {}
 
 Transport::~Transport() { close(); }
 
@@ -335,7 +346,7 @@ bool Transport::open() {
         card->logger->set_diag_stream(card->log_file);
       }
     }
-    if (!card->open(m_channel, m_reset_usb_on_open)) {
+    if (!card->open(m_channel, m_reset_usb_on_open, m_register_batching)) {
       close();
       return false;
     }

@@ -38,7 +38,8 @@ class Transport {
   using FatalCallback = std::function<void(int)>;
 
   Transport(std::vector<std::string> interface_names, Channel channel,
-            std::string log_path = "", bool reset_usb_on_open = true);
+            std::string log_path = "", bool reset_usb_on_open = true,
+            bool register_batching = true);
   ~Transport();
   Transport(const Transport&) = delete;
   Transport& operator=(const Transport&) = delete;
@@ -84,6 +85,7 @@ class Transport {
   Channel m_channel;
   std::string m_log_path;
   bool m_reset_usb_on_open;
+  bool m_register_batching;
   mutable std::mutex m_fhss_mutex;
   std::shared_ptr<devourer::FhssSession> m_fhss;
 };
