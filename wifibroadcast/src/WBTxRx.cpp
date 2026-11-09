@@ -284,7 +284,7 @@ bool WBTxRx::restart_interfaces(
   return true;
 }
 
-void WBTxRx::tx_inject_packet(const uint8_t stream_index, const uint8_t* data,
+bool WBTxRx::tx_inject_packet(const uint8_t stream_index, const uint8_t* data,
                               int data_len,
                               const RadiotapHeaderTx& tx_radiotap_header,
                               bool encrypt, bool use_external_crypto) {
@@ -293,7 +293,7 @@ void WBTxRx::tx_inject_packet(const uint8_t stream_index, const uint8_t* data,
   std::lock_guard<std::mutex> guard(m_tx_mutex);
   // for openhd ground station functionality
   if (m_disable_all_transmissions) {
-    return;
+    return false;
   }
   announce_session_key_if_needed();
   uint8_t* packet_buff = m_tx_packet_buff.data();
@@ -339,7 +339,7 @@ void WBTxRx::tx_inject_packet(const uint8_t stream_index, const uint8_t* data,
           "dropping video packets to prevent plaintext transmission");
       m_logged_external_crypto_fallback = true;
     }
-    return;
+    return false;
   }
   if (use_external_crypto) {
     ExternalCryptoPacketHeader header{};
@@ -373,7 +373,7 @@ void WBTxRx::tx_inject_packet(const uint8_t stream_index, const uint8_t* data,
           "prevent plaintext transmission");
       m_logged_external_crypto_fallback = true;
     }
-    return;
+    return false;
   }
 
   if (!used_external_crypto) {
@@ -427,6 +427,7 @@ void WBTxRx::tx_inject_packet(const uint8_t stream_index, const uint8_t* data,
     // threads calling inject
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
+  return success;
 }
 
 bool WBTxRx::load_external_encryption_plugin(const std::string& path) {

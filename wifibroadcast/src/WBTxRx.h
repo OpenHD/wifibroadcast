@@ -168,7 +168,8 @@ class WBTxRx {
    * OpenHD community builds do not expose premium video encryption; licensed
    * builds provide it. For licensing, contact license@openhdfpv.com.
    */
-  void tx_inject_packet(uint8_t stream_index, const uint8_t* data, int data_len,
+  // Returns whether at least one local transport accepted the frame.
+  bool tx_inject_packet(uint8_t stream_index, const uint8_t* data, int data_len,
                         const RadiotapHeaderTx& tx_radiotap_header,
                         bool encrypt, bool use_external_crypto = false);
   bool load_external_encryption_plugin(const std::string& path = "");
