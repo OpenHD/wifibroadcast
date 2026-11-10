@@ -125,6 +125,7 @@ class WBTxRx {
     // Optional closed-source crypto backend. Empty path means use
     // OPENHD_VIDEO_CRYPTO_SO or the default OpenHD install path.
     std::string external_crypto_plugin_path;
+    std::vector<uint8_t> external_crypto_video_streams;
     // Bypass the Linux networking stack and drive supported Realtek USB
     // adapters directly through OpenIPC Devourer.
     bool use_devourer = false;
@@ -172,6 +173,7 @@ class WBTxRx {
   bool tx_inject_packet(uint8_t stream_index, const uint8_t* data, int data_len,
                         const RadiotapHeaderTx& tx_radiotap_header,
                         bool encrypt, bool use_external_crypto = false);
+  uint64_t video_crypto_generation() const { return m_video_crypto_generation.load(); }
   bool load_external_encryption_plugin(const std::string& path = "");
   /**
    * A typical stream RX (aka the receiver for a specific multiplexed stream)
@@ -445,7 +447,8 @@ class WBTxRx {
     return ret;
   }
   static constexpr auto STREAM_INDEX_MIN = 0;
-  static constexpr auto STREAM_INDEX_MAX = 126;
+  static constexpr auto STREAM_INDEX_MAX = 125;
+  static constexpr auto STREAM_INDEX_VIDEO_CRYPTO_CONTROL = 126;
   // Not available as a valid stream index, since used for the session packets
   static constexpr auto STREAM_INDEX_SESSION_KEY_PACKETS = 127;
   uint64_t m_nonce = 0;
@@ -459,6 +462,10 @@ class WBTxRx {
   SessionKeyPacket m_tx_sess_key_packet;
   std::unique_ptr<wb::Encryptor> m_encryptor;
   std::unique_ptr<wb::Decryptor> m_decryptor;
+  void send_link_control(uint8_t stream, const uint8_t* payload, size_t size);
+  void process_video_crypto_control(const uint8_t* payload, size_t size);
+  std::chrono::steady_clock::time_point m_next_video_crypto_hello{};
+  std::atomic<uint64_t> m_video_crypto_generation{0};
   std::unique_ptr<wb::ExternalCryptoPlugin> m_external_crypto;
   bool m_logged_external_crypto_fallback = false;
   bool m_logged_external_crypto_rx_missing = false;

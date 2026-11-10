@@ -42,7 +42,7 @@ bool is_external_crypto_payload(const uint8_t* data, int data_len) {
   ExternalCryptoPacketHeader header{};
   std::memcpy(&header, data, sizeof(header));
   return header.magic == kExternalCryptoMagic &&
-         header.version == kExternalCryptoVersion;
+         (header.version == kExternalCryptoVersion || header.version == 2);
 }
 
 }  // namespace
@@ -296,6 +296,19 @@ bool WBTxRx::tx_inject_packet(const uint8_t stream_index, const uint8_t* data,
     return false;
   }
   announce_session_key_if_needed();
+  if (use_external_crypto && m_external_crypto &&
+      m_external_crypto->supports_sessions()) {
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= m_next_video_crypto_hello) {
+      m_next_video_crypto_hello = now + std::chrono::milliseconds(250);
+      std::array<uint8_t, 128> hello{};
+      size_t size = 0;
+      m_external_crypto->session(nullptr, 0, hello.data(), hello.size(), size);
+      if (size) {
+        send_link_control(STREAM_INDEX_VIDEO_CRYPTO_CONTROL, hello.data(), size);
+      }
+    }
+  }
   uint8_t* packet_buff = m_tx_packet_buff.data();
   // radiotap header comes first
   memcpy(packet_buff, tx_radiotap_header.getData(),
@@ -344,14 +357,14 @@ bool WBTxRx::tx_inject_packet(const uint8_t stream_index, const uint8_t* data,
   if (use_external_crypto) {
     ExternalCryptoPacketHeader header{};
     header.magic = kExternalCryptoMagic;
-    header.version = kExternalCryptoVersion;
+    header.version = static_cast<uint8_t>(m_external_crypto->wire_format_id());
     uint8_t* external_ciphertext =
         encrypted_data_p + sizeof(ExternalCryptoPacketHeader);
     size_t external_ciphertext_len =
         RAW_WIFI_FRAME_MAX_PAYLOAD_SIZE - sizeof(ExternalCryptoPacketHeader);
     uint64_t key_id = 0;
     if (m_external_crypto->encrypt(data, data_len, external_ciphertext,
-                                   &external_ciphertext_len, &key_id)) {
+                                   &external_ciphertext_len, &key_id, stream_index)) {
       header.key_id = key_id;
       std::memcpy(encrypted_data_p, &header, sizeof(header));
       payload_len =
@@ -810,7 +823,11 @@ void WBTxRx::on_new_parsed_packet(
   const auto nonce = rx_iee80211_hdr_openhd.get_nonce();
   const std::optional<radiotap::rx::ParsedRxRadiotapPacket> parsed_packet_opt{
       parsed_packet};
-  if (radio_port.multiplex_index == STREAM_INDEX_SESSION_KEY_PACKETS) {
+  if (radio_port.multiplex_index == STREAM_INDEX_VIDEO_CRYPTO_CONTROL) {
+    if (!radio_port.encrypted) {
+      process_video_crypto_control(pkt_payload, pkt_payload_size);
+    }
+  } else if (radio_port.multiplex_index == STREAM_INDEX_SESSION_KEY_PACKETS) {
     process_session_stream_packet(wlan_idx, radio_port, parsed_packet_opt,
                                   pkt_payload_size, nonce);
   } else {
@@ -1018,6 +1035,7 @@ bool WBTxRx::process_received_data_packet(int wlan_idx, uint8_t stream_index,
 
     ExternalCryptoPacketHeader header{};
     std::memcpy(&header, payload_and_enc_suffix, sizeof(header));
+    if (header.version != m_external_crypto->wire_format_id()) return false;
     const uint8_t* ciphertext =
         payload_and_enc_suffix + sizeof(ExternalCryptoPacketHeader);
     const int ciphertext_len =
@@ -1027,7 +1045,7 @@ bool WBTxRx::process_received_data_packet(int wlan_idx, uint8_t stream_index,
     const auto before_decrypt = std::chrono::steady_clock::now();
     const bool res = m_external_crypto->decrypt(
         ciphertext, ciphertext_len, decrypted->data(), &decrypted_len,
-        header.key_id);
+        header.key_id, stream_index);
     if (!res) {
       return false;
     }
@@ -1420,7 +1438,38 @@ void WBTxRx::announce_session_key_if_needed() {
   }
 }
 
+void WBTxRx::process_video_crypto_control(const uint8_t* payload, size_t size) {
+  if (!size || !m_external_crypto || !m_external_crypto->supports_sessions()) {
+    return;
+  }
+  std::array<uint8_t, 128> reply{};
+  size_t reply_size = 0;
+  // Serialize the state transition with video packet injection.
+  std::lock_guard<std::mutex> guard(m_tx_mutex);
+  if (m_disable_all_transmissions) return;
+  if (m_external_crypto->session(payload, size, reply.data(), reply.size(),
+                                 reply_size)) {
+    for (const auto port : m_options.external_crypto_video_streams) {
+      const auto handler = m_rx_handlers.find(port);
+      if (handler != m_rx_handlers.end() && handler->second->cb_session) {
+        handler->second->cb_session();
+      }
+    }
+    ++m_video_crypto_generation;
+  }
+  if (reply_size) {
+    send_link_control(STREAM_INDEX_VIDEO_CRYPTO_CONTROL, reply.data(), reply_size);
+  }
+}
+
 void WBTxRx::send_session_key() {
+  send_link_control(STREAM_INDEX_SESSION_KEY_PACKETS,
+                    reinterpret_cast<const uint8_t*>(&m_tx_sess_key_packet),
+                    sizeof(m_tx_sess_key_packet));
+}
+
+void WBTxRx::send_link_control(uint8_t stream, const uint8_t* payload,
+                               size_t size) {
   RadiotapHeaderTx tmp_radiotap_header =
       m_session_key_radiotap_header->thread_safe_get();
   Ieee80211HeaderOpenHD tmp_tx_hdr{};
@@ -1428,13 +1477,13 @@ void WBTxRx::send_session_key() {
                                 ? OPENHD_IEEE80211_HEADER_UNIQUE_ID_GND
                                 : OPENHD_IEEE80211_HEADER_UNIQUE_ID_AIR;
   tmp_tx_hdr.write_unique_id_src_dst(unique_tx_id);
-  RadioPort radioPort{false, STREAM_INDEX_SESSION_KEY_PACKETS};
+  RadioPort radioPort{false, stream};
   tmp_tx_hdr.write_radio_port_src_dst(radio_port_to_uint8_t(radioPort));
   tmp_tx_hdr.write_ieee80211_seq_nr(m_ieee80211_seq++);
   tmp_tx_hdr.write_nonce(m_nonce++);
   auto packet = RadiotapHelper::create_radiotap_wifi_packet(
       tmp_radiotap_header, *(Ieee80211HeaderRaw*)&tmp_tx_hdr,
-      (uint8_t*)&m_tx_sess_key_packet, sizeof(SessionKeyPacket));
+      payload, size);
   const int packet_size = (int)packet.size();
   // NOTE: Session key is always sent via card 0 since otherwise we might pick
   // up the session key intended for the ground unit from the air unit !

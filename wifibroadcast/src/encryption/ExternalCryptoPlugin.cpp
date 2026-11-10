@@ -106,6 +106,14 @@ bool wb::ExternalCryptoPlugin::load(const std::string& path, bool is_air) {
     return false;
   }
 
+  if (wire_format_id() == 2U) {
+    m_session = reinterpret_cast<session_fn>(
+        dlsym(m_handle, "openhd_video_crypto_session"));
+    m_encrypt_stream = reinterpret_cast<encrypt_stream_fn>(
+        dlsym(m_handle, "openhd_video_crypto_encrypt_stream"));
+    m_decrypt_stream = reinterpret_cast<decrypt_stream_fn>(
+        dlsym(m_handle, "openhd_video_crypto_decrypt_stream"));
+  }
   m_loaded_path = resolved_path;
   wifibroadcast::log::get_default()->info("Loaded external crypto plugin {}",
                                           m_loaded_path);
@@ -117,9 +125,21 @@ bool wb::ExternalCryptoPlugin::load(const std::string& path, bool is_air) {
 #endif
 }
 
+bool wb::ExternalCryptoPlugin::session(const uint8_t* input, size_t size,
+                                   uint8_t* output, size_t capacity,
+                                   size_t& output_size) const {
+  output_size = 0;
+  return m_session &&
+         m_session(input, size, output, capacity, &output_size) == 1;
+}
+
 bool wb::ExternalCryptoPlugin::encrypt(const uint8_t* in, size_t in_len,
                                        uint8_t* out, size_t* out_len,
-                                       uint64_t* key_id) const {
+                                       uint64_t* key_id, uint8_t stream) const {
+  if (wire_format_id() == 2U) {
+    return supports_sessions() &&
+           m_encrypt_stream(stream, in, in_len, out, out_len, key_id) == 0;
+  }
   if ((!m_provider || !m_provider->encrypt) && !m_legacy_encrypt) {
     return false;
   }
@@ -132,7 +152,11 @@ bool wb::ExternalCryptoPlugin::encrypt(const uint8_t* in, size_t in_len,
 
 bool wb::ExternalCryptoPlugin::decrypt(const uint8_t* in, size_t in_len,
                                        uint8_t* out, size_t* out_len,
-                                       uint64_t key_id) const {
+                                       uint64_t key_id, uint8_t stream) const {
+  if (wire_format_id() == 2U) {
+    return supports_sessions() &&
+           m_decrypt_stream(stream, in, in_len, out, out_len, key_id) == 0;
+  }
   if ((!m_provider || !m_provider->decrypt) && !m_legacy_decrypt) {
     return false;
   }
